@@ -1,0 +1,15 @@
+<component name="libraryTable">
+  <library name="workspace">
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$/../../../konar_ws/src" />
+      <root url="file://$PROJECT_DIR$/../../../private_ws/src" />
+      <root url="file://$PROJECT_DIR$/../../../ompl_ws/src/ompl" />
+      <root url="file:///opt/ros/melodic/share" />
+      <root url="file://$PROJECT_DIR$/../../../ompl_ws/src/fcl" />
+      <root url="file://$PROJECT_DIR$/.." />
+    </CLASSES>
+    <SOURCES>
+      <root url="file://$PROJECT_DIR$/../.." />
+    </SOURCES>
+  </library>
+</component>

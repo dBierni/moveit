@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ROSSettings">
+    <option name="rosPath" value="/opt/ros/melodic" />
+    <option name="workspacePath" value="$PROJECT_DIR$/../.." />
+    <option name="additionalSources" value="$PROJECT_DIR$/../../../ompl_ws/src/fcl:/home/db/ROS_WORKSPACE/ompl_ws/src/ompl:/home/db/ROS_WORKSPACE/private_ws/src:/home/db/ROS_WORKSPACE/konar_ws/src:/home/db/ROS_WORKSPACE/moveit_ws/src:/opt/ros/melodic/share" />
+  </component>
+</project>
