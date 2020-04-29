@@ -308,7 +308,16 @@ const JointModel* JointModelGroup::getJointModel(const std::string& name) const
   }
   return it->second;
 }
-
+void JointModelGroup::getVariableQuasiRandomPositions(const std::function<double(double,double)> rng, double* values,
+                                                 const JointBoundsVector& active_joint_bounds) const
+{
+  assert(active_joint_bounds.size() == active_joint_model_vector_.size());
+  for (std::size_t i = 0; i < active_joint_model_vector_.size(); ++i)
+    active_joint_model_vector_[i]->getVariableQuasiRandomPositions(rng, values + active_joint_model_start_index_[i],
+                                                              *active_joint_bounds[i]);
+  std::cout << std::endl;
+  updateMimicJoints(values);
+}
 void JointModelGroup::getVariableRandomPositions(random_numbers::RandomNumberGenerator& rng, double* values,
                                                  const JointBoundsVector& active_joint_bounds) const
 {
@@ -316,6 +325,8 @@ void JointModelGroup::getVariableRandomPositions(random_numbers::RandomNumberGen
   for (std::size_t i = 0; i < active_joint_model_vector_.size(); ++i)
     active_joint_model_vector_[i]->getVariableRandomPositions(rng, values + active_joint_model_start_index_[i],
                                                               *active_joint_bounds[i]);
+
+
 
   updateMimicJoints(values);
 }

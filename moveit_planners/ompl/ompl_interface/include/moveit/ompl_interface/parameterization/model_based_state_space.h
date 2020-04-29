@@ -201,6 +201,23 @@ public:
 
   ompl::base::StateSamplerPtr allocDefaultStateSampler() const override;
 
+  ompl::base::StateSamplerPtr allocQuasiRandomStateSampler() const;
+
+  enum QuasiRandomGeneratorType
+  {
+      NIEDERREITER_2,
+
+      SOBOL,
+
+      FAURE,
+
+  };
+
+  void setQuasiRandomEngineType(QuasiRandomGeneratorType type)
+  {
+    quasi_random_engine_type_ = type;
+  }
+
   const robot_model::RobotModelConstPtr& getRobotModel() const
   {
     return spec_.robot_model_;
@@ -268,6 +285,8 @@ protected:
 
   double tag_snap_to_segment_;
   double tag_snap_to_segment_complement_;
+  QuasiRandomGeneratorType quasi_random_engine_type_;
+
 };
 }  // namespace ompl_interface
 

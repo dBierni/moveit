@@ -53,7 +53,10 @@ unsigned int FixedJointModel::getStateSpaceDimension() const
 void FixedJointModel::getVariableDefaultPositions(double* values, const Bounds& bounds) const
 {
 }
-
+void FixedJointModel::getVariableQuasiRandomPositions(const std::function<double(double,double)>& rng, double* values,
+                                                         const Bounds& bounds) const
+{
+}
 void FixedJointModel::getVariableRandomPositions(random_numbers::RandomNumberGenerator& rng, double* values,
                                                  const Bounds& bounds) const
 {

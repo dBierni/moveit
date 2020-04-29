@@ -269,7 +269,13 @@ public:
                                                 const Bounds& other_bounds, const double* near,
                                                 const double distance) const = 0;
 
-  /** @} */
+  /** \brief Provide quasi random values for the joint variables (within specified bounds). Enough memory is assumed to be
+   * allocated. */
+  virtual void getVariableQuasiRandomPositions(const std::function<double(double,double)>& rng, double* values,
+                                          const Bounds& other_bounds) const = 0;
+
+
+    /** @} */
 
   /** @name Functionality specific to verifying bounds
       @{ */

@@ -78,9 +78,11 @@ ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::
   , minimum_waypoint_count_(0)
   , use_state_validity_cache_(true)
   , simplify_solutions_(true)
+  , quasi_random_sampling_(true)
 {
   complete_initial_robot_state_.update();
   ompl_simple_setup_->getStateSpace()->computeSignature(space_signature_);
+  ROS_WARN_STREAM("setStateSamplerAllocator w Moiveit");
   ompl_simple_setup_->getStateSpace()->setStateSamplerAllocator(
       std::bind(&ModelBasedPlanningContext::allocPathConstrainedSampler, this, std::placeholders::_1));
 }
@@ -155,6 +157,7 @@ ompl_interface::ModelBasedPlanningContext::getProjectionEvaluator(const std::str
 ompl::base::StateSamplerPtr
 ompl_interface::ModelBasedPlanningContext::allocPathConstrainedSampler(const ompl::base::StateSpace* ss) const
 {
+    ROS_WARN_STREAM("allocPathConstrainedSampler Moveit START?");
   if (spec_.state_space_.get() != ss)
   {
     ROS_ERROR_NAMED("model_based_planning_context",
@@ -202,7 +205,10 @@ ompl_interface::ModelBasedPlanningContext::allocPathConstrainedSampler(const omp
   }
   ROS_DEBUG_NAMED("model_based_planning_context", "%s: Allocating default state sampler for state space",
                   name_.c_str());
-  return ss->allocDefaultStateSampler();
+  ROS_ERROR_STREAM("allocPathConstrainedSampler Moveit END?");
+  if(quasi_random_sampling_)
+      return spec_.state_space_->allocQuasiRandomStateSampler();
+    return ss->allocDefaultStateSampler();
 }
 
 void ompl_interface::ModelBasedPlanningContext::configure()
@@ -639,6 +645,8 @@ bool ompl_interface::ModelBasedPlanningContext::solve(planning_interface::Motion
 
 bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned int count)
 {
+  ROS_WARN("ModelBasedPlanningContext start");
+
   moveit::tools::Profiler::ScopedBlock sblock("PlanningContext:Solve");
   ompl::time::point start = ompl::time::now();
   preSolve();
@@ -714,6 +722,7 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
   }
 
   postSolve();
+  ROS_WARN("ModelBasedPlanningContext end");
 
   return result;
 }

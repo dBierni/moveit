@@ -375,6 +375,10 @@ protected:
   bool use_state_validity_cache_;
 
   bool simplify_solutions_;
+
+  bool quasi_random_sampling_;
+
+
 };
 }  // namespace ompl_interface
 

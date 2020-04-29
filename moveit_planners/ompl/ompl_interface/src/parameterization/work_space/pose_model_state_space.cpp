@@ -180,6 +180,7 @@ ompl_interface::PoseModelStateSpace::PoseComponent::PoseComponent(
     const robot_model::JointModelGroup* subgroup, const robot_model::JointModelGroup::KinematicsSolver& k)
   : subgroup_(subgroup), kinematics_solver_(k.allocator_(subgroup)), bijection_(k.bijection_)
 {
+  ROS_ERROR("PoseComponent::PoseComponent");
   state_space_.reset(new ompl::base::SE3StateSpace());
   state_space_->setName(subgroup_->getName() + "_Workspace");
   fk_link_.resize(1, kinematics_solver_->getTipFrame());

@@ -44,6 +44,7 @@
 #include <ompl/geometric/planners/rrt/RRT.h>
 #include <ompl/geometric/planners/rrt/pRRT.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
+#include <ompl/geometric/planners/rrt/NewPlanner.h>
 #include <ompl/geometric/planners/rrt/TRRT.h>
 #include <ompl/geometric/planners/rrt/LazyRRT.h>
 #include <ompl/geometric/planners/est/EST.h>
@@ -207,6 +208,9 @@ void ompl_interface::PlanningContextManager::registerDefaultPlanners()
   registerPlannerAllocator(   //
       "geometric::SPARStwo",  //
       std::bind(&allocatePlanner<og::SPARStwo>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+  registerPlannerAllocator(   //
+          "geometric::NewPlanner",  //
+          std::bind(&allocatePlanner<og::NewPlanner>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 }
 
 void ompl_interface::PlanningContextManager::registerDefaultStateSpaces()

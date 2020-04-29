@@ -728,6 +728,10 @@ std::vector<OMPLPlannerDescription> MoveItConfigData::getOMPLPlanners()
   SPARStwo.addParameter("max_failures", "5000", "maximum consecutive failure limit. default: 5000");
   planner_des.push_back(SPARStwo);
 
+  OMPLPlannerDescription NewPlanner("NewPlanner", "geometric");
+  NewPlanner.addParameter("range", "0.0", "Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on "
+                                          "setup()");
+  planner_des.push_back(NewPlanner);
   return planner_des;
 }
 

@@ -112,7 +112,11 @@ void PlanarJointModel::getVariableRandomPositions(random_numbers::RandomNumberGe
     values[1] = rng.uniformReal(bounds[1].min_position_, bounds[1].max_position_);
   values[2] = rng.uniformReal(bounds[2].min_position_, bounds[2].max_position_);
 }
-
+void PlanarJointModel::getVariableQuasiRandomPositions(const std::function<double(double,double)>& rng, double* values,
+                                                         const Bounds& bounds) const
+{
+  values[0] = rng(bounds[0].min_position_, bounds[0].max_position_);
+}
 void PlanarJointModel::getVariableRandomPositionsNearBy(random_numbers::RandomNumberGenerator& rng, double* values,
                                                         const Bounds& bounds, const double* near,
                                                         const double distance) const

@@ -275,6 +275,11 @@ void FloatingJointModel::getVariableRandomPositions(random_numbers::RandomNumber
   values[5] = q[2];
   values[6] = q[3];
 }
+void FloatingJointModel::getVariableQuasiRandomPositions(const std::function<double(double,double)>& rng, double* values,
+                                                         const Bounds& bounds) const
+{
+  values[0] = rng(bounds[0].min_position_, bounds[0].max_position_);
+}
 
 void FloatingJointModel::getVariableRandomPositionsNearBy(random_numbers::RandomNumberGenerator& rng, double* values,
                                                           const Bounds& bounds, const double* near,

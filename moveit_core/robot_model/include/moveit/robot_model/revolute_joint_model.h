@@ -51,6 +51,8 @@ public:
 
   RevoluteJointModel(const std::string& name);
   void getVariableDefaultPositions(double* values, const Bounds& other_bounds) const override;
+  void getVariableQuasiRandomPositions(const std::function<double(double,double)>& rng, double* values,
+                                                           const Bounds& bounds) const override;
   void getVariableRandomPositions(random_numbers::RandomNumberGenerator& rng, double* values,
                                   const Bounds& other_bounds) const override;
   void getVariableRandomPositionsNearBy(random_numbers::RandomNumberGenerator& rng, double* values,

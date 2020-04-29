@@ -315,7 +315,7 @@ public:
   /** \brief Compute the default values for the joint group */
   void getVariableDefaultPositions(double* values) const;
 
-  /** \brief Compute random values for the state of the joint group */
+    /** \brief Compute random values for the state of the joint group */
   void getVariableRandomPositions(random_numbers::RandomNumberGenerator& rng, double* values) const
   {
     getVariableRandomPositions(rng, values, active_joint_models_bounds_);
@@ -366,6 +366,9 @@ public:
   }
 
   void getVariableRandomPositions(random_numbers::RandomNumberGenerator& rng, double* values,
+                                  const JointBoundsVector& active_joint_bounds) const;
+
+  void getVariableQuasiRandomPositions(const std::function<double(double,double)> rng, double* values,
                                   const JointBoundsVector& active_joint_bounds) const;
 
   /** \brief Compute random values for the state of the joint group */

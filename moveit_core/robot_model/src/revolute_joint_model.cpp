@@ -110,6 +110,13 @@ void RevoluteJointModel::getVariableDefaultPositions(double* values, const Bound
     values[0] = (bounds[0].min_position_ + bounds[0].max_position_) / 2.0;
 }
 
+void RevoluteJointModel::getVariableQuasiRandomPositions(const std::function<double(double,double)>& rng, double* values,
+                                                    const Bounds& bounds) const
+{
+  values[0] = rng(bounds[0].min_position_, bounds[0].max_position_);
+  std::cout << values[0] << "  ";
+}
+
 void RevoluteJointModel::getVariableRandomPositions(random_numbers::RandomNumberGenerator& rng, double* values,
                                                     const Bounds& bounds) const
 {
