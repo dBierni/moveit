@@ -85,12 +85,12 @@ ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::
   ROS_WARN_STREAM("setStateSamplerAllocator w Moiveit");
   ompl_simple_setup_->getStateSpace()->setStateSamplerAllocator(
       std::bind(&ModelBasedPlanningContext::allocPathConstrainedSampler, this, std::placeholders::_1));
-  experienceDB_ = std::make_shared<ompl::tools::ThunderDB>(ompl_simple_setup_->getStateSpace());
-  experience_planner_ =  std::make_shared<og::ThunderRetrieveRepair>(ompl_simple_setup_->getSpaceInformation(), experienceDB_);
-  ompl_simple_setup_->setExperiencePlanner<ot::ThunderDBPtr>(experienceDB_);
+//  experienceDB_ = std::make_shared<ompl::tools::ThunderDB>(ompl_simple_setup_->getStateSpace());
+//  experience_planner_ =  std::make_shared<og::ThunderRetrieveRepair>(ompl_simple_setup_->getSpaceInformation(), experienceDB_);
+//  ompl_simple_setup_->setExperiencePlanner<ot::ThunderDBPtr>(experienceDB_);
 
   bolt_ = std::make_unique<otb::Bolt>(ompl_simple_setup_->getStateSpace());
-//  experience_simple_setup_ = bolt_;
+  experience_simple_setup_ = bolt_;
 }
 
 void ompl_interface::ModelBasedPlanningContext::setProjectionEvaluator(const std::string& peval)
@@ -222,6 +222,7 @@ void ompl_interface::ModelBasedPlanningContext::configure()
   spec_.state_space_->copyToOMPLState(ompl_start_state.get(), getCompleteInitialRobotState());
   ompl_simple_setup_->setStartState(ompl_start_state);
   ompl_simple_setup_->setStateValidityChecker(ob::StateValidityCheckerPtr(new StateValidityChecker(this)));
+  experience_simple_setup_->setStateValidityChecker(ob::StateValidityCheckerPtr(new StateValidityChecker(this)));
 
   if (path_constraints_ && spec_.constraints_library_)
   {
@@ -250,26 +251,27 @@ void ompl_interface::ModelBasedPlanningContext::configure()
 //      }
 //    }
     // Setup SPARS
-    if (!experienceDB_->getSPARSdb())
-    {
-      OMPL_INFORM("Calling setup() for SPARSdb");
-      std::string filePath_ = "/home/db/Robotics/ROS_WORKSPACE/moveit_ws/src/moveit/moveit_planners/ompl/ompl_interface/src/database/thunder.db";
-      // Load SPARSdb
-      experienceDB_->getSPARSdb() = std::make_shared<ompl::geometric::SPARSdb>(ompl_simple_setup_->getSpaceInformation());
-      experienceDB_->getSPARSdb()->setProblemDefinition(ompl_simple_setup_->getProblemDefinition());
-      experienceDB_->getSPARSdb()->setup();
-
-      experienceDB_->getSPARSdb()->setStretchFactor(1.2);
-      experienceDB_->getSPARSdb()->setSparseDeltaFraction(
-              0.05);  // vertex visibility range  = maximum_extent * this_fraction
-      // experienceDB_->getSPARSdb()->setDenseDeltaFraction(0.001);
-
-      experienceDB_->getSPARSdb()->printDebug();
-
-      experienceDB_->load(filePath_);  // load from file
-    }
+//    if (!experienceDB_->getSPARSdb())
+//    {
+//      OMPL_INFORM("Calling setup() for SPARSdb");
+//      std::string filePath_ = "/home/db/Robotics/ROS_WORKSPACE/moveit_ws/src/moveit/moveit_planners/ompl/ompl_interface/src/database/thunder.db";
+//      // Load SPARSdb
+//      experienceDB_->getSPARSdb() = std::make_shared<ompl::geometric::SPARSdb>(ompl_simple_setup_->getSpaceInformation());
+//      experienceDB_->getSPARSdb()->setProblemDefinition(ompl_simple_setup_->getProblemDefinition());
+//      experienceDB_->getSPARSdb()->setup();
+//
+//      experienceDB_->getSPARSdb()->setStretchFactor(1.2);
+//      experienceDB_->getSPARSdb()->setSparseDeltaFraction(
+//              0.05);  // vertex visibility range  = maximum_extent * this_fraction
+//      // experienceDB_->getSPARSdb()->setDenseDeltaFraction(0.001);
+//
+//      experienceDB_->getSPARSdb()->printDebug();
+//
+//      experienceDB_->load(filePath_);  // load from file
+//    }
 
     ompl_simple_setup_->setup();
+    experience_simple_setup_->setup();
 
   }
 }
@@ -686,7 +688,7 @@ bool ompl_interface::ModelBasedPlanningContext::solve(planning_interface::Motion
 bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned int count)
 {
   ROS_WARN("ModelBasedPlanningContext start");
-
+  bolt_->getSparseGenerator();
   moveit::tools::Profiler::ScopedBlock sblock("PlanningContext:Solve");
   ompl::time::point start = ompl::time::now();
   preSolve();
@@ -719,7 +721,7 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
         {
           if (use_experience) {
             ROS_WARN("use_experience ?");
-            ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
+//            ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
             use_experience = false;
           }
           else
@@ -748,7 +750,7 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
           for (unsigned int i = 0; i < max_planning_threads_; ++i) {
             if (use_experience) {
               ROS_WARN("use_experience ?");
-              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
+//              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
               use_experience = false;
             } else
               ompl_parallel_plan_.addPlannerAllocator(ompl_simple_setup_->getPlannerAllocator());
@@ -757,7 +759,7 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
           for (unsigned int i = 0; i < max_planning_threads_; ++i)
             if (use_experience) {
               ROS_WARN("use_experience ?");
-              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
+//              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
               use_experience = false;
             }
             else
@@ -776,7 +778,7 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
           for (int i = 0; i < n; ++i)
             if (use_experience) {
               ROS_WARN("use_experience ?");
-              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
+//              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
               use_experience = false;
             }
             else
