@@ -46,12 +46,18 @@
 #include <ompl/tools/benchmark/Benchmark.h>
 #include <ompl/tools/multiplan/ParallelPlan.h>
 #include <ompl/base/StateStorage.h>
+/* Damian B*/
+#include <ompl/geometric/planners/experience/ThunderRetrieveRepair.h>
+#include <ompl/tools/thunder/ThunderDB.h>
+#include <ompl/tools/experience/ExperienceSetup.h>
+#include <bolt_core/Bolt.h>
 
 namespace ompl_interface
 {
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 namespace ot = ompl::tools;
+namespace otb = ompl::tools::bolt;
 
 MOVEIT_CLASS_FORWARD(ModelBasedPlanningContext);
 MOVEIT_CLASS_FORWARD(ConstraintsLibrary);
@@ -329,8 +335,17 @@ protected:
   /// the OMPL planning context; this contains the problem definition and the planner used
   og::SimpleSetupPtr ompl_simple_setup_;
 
-  /// the OMPL tool for benchmarking planners
+  ot::ThunderDBPtr experienceDB_;
+  ob::PlannerPtr experience_planner_;
+
+  // Save the experience setup until the program ends so that the planner data is not lost
+  ot::ExperienceSetupPtr experience_setup_;
+  og::SimpleSetupPtr experience_simple_setup_;
+  otb::BoltPtr bolt_;
+
+    /// the OMPL tool for benchmarking planners
   ot::Benchmark ompl_benchmark_;
+
 
   /// tool used to compute multiple plans in parallel; this uses the problem definition maintained by ompl_simple_setup_
   ot::ParallelPlan ompl_parallel_plan_;

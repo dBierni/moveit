@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   pluginlib
   tf2_ros
   dynamic_reconfigure
+  bolt_core
   )
 
 find_package(ompl REQUIRED)

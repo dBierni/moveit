@@ -315,7 +315,6 @@ void JointModelGroup::getVariableQuasiRandomPositions(const std::function<double
   for (std::size_t i = 0; i < active_joint_model_vector_.size(); ++i)
     active_joint_model_vector_[i]->getVariableQuasiRandomPositions(rng, values + active_joint_model_start_index_[i],
                                                               *active_joint_bounds[i]);
-  std::cout << std::endl;
   updateMimicJoints(values);
 }
 void JointModelGroup::getVariableRandomPositions(random_numbers::RandomNumberGenerator& rng, double* values,

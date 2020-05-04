@@ -247,7 +247,6 @@ void ompl_interface::ModelBasedStateSpace::setPlanningVolume(double minX, double
 
 ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocDefaultStateSampler() const
 {
-    ROS_ERROR_STREAM(" wchodze allocDefaultStateSampler");
   class DefaultStateSampler : public ompl::base::StateSampler
   {
   public:
@@ -255,12 +254,10 @@ ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocDefaultSt
                         const robot_model::JointBoundsVector* joint_bounds)
       : ompl::base::StateSampler(space), joint_model_group_(group), joint_bounds_(joint_bounds)
     {
-        ROS_ERROR_STREAM(" DefaultStateSampler constructor allocDefaultStateSampler");
     }
 
     void sampleUniform(ompl::base::State* state) override
     {
-      ROS_ERROR_STREAM("SAMPLE UNIFORM");
       joint_model_group_->getVariableRandomPositions(moveit_rng_, state->as<StateType>()->values, *joint_bounds_);
       state->as<StateType>()->clearKnownInformation();
     }
@@ -288,7 +285,6 @@ ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocDefaultSt
 }
 ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocQuasiRandomStateSampler() const
 {
-  ROS_ERROR_STREAM(" wchodze allocQuasiRandomStateSampler");
   class QuasiRandomStateSampler : public ompl::base::StateSampler
   {
   public:
@@ -298,7 +294,6 @@ ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocQuasiRand
               : ompl::base::StateSampler(space), joint_model_group_(group), joint_bounds_(joint_bounds)
               , moveit_rng_(0, group->getActiveJointModels().size())
       {
-        ROS_ERROR_STREAM(" allocQuasiRandomStateSampler constructor allocQuasiRandomStateSampler");
         if (generator_type == QuasiRandomGeneratorType::NIEDERREITER_2)
           quasi_rng_fun_ = std::bind(&random_numbers::RandomNumberGenerator::niederreiter2Real,&moveit_rng_,std::placeholders::_1,
                                  std::placeholders::_2);
@@ -312,7 +307,6 @@ ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocQuasiRand
 
       void sampleUniform(ompl::base::State* state) override
       {
-        ROS_ERROR_STREAM("SAMPLE Quasi");
         joint_model_group_->getVariableQuasiRandomPositions(quasi_rng_fun_, state->as<StateType>()->values, *joint_bounds_);
         state->as<StateType>()->clearKnownInformation();
       }

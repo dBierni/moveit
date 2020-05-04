@@ -85,6 +85,12 @@ ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::
   ROS_WARN_STREAM("setStateSamplerAllocator w Moiveit");
   ompl_simple_setup_->getStateSpace()->setStateSamplerAllocator(
       std::bind(&ModelBasedPlanningContext::allocPathConstrainedSampler, this, std::placeholders::_1));
+  experienceDB_ = std::make_shared<ompl::tools::ThunderDB>(ompl_simple_setup_->getStateSpace());
+  experience_planner_ =  std::make_shared<og::ThunderRetrieveRepair>(ompl_simple_setup_->getSpaceInformation(), experienceDB_);
+  ompl_simple_setup_->setExperiencePlanner<ot::ThunderDBPtr>(experienceDB_);
+
+  bolt_ = std::make_unique<otb::Bolt>(ompl_simple_setup_->getStateSpace());
+//  experience_simple_setup_ = bolt_;
 }
 
 void ompl_interface::ModelBasedPlanningContext::setProjectionEvaluator(const std::string& peval)
@@ -157,7 +163,6 @@ ompl_interface::ModelBasedPlanningContext::getProjectionEvaluator(const std::str
 ompl::base::StateSamplerPtr
 ompl_interface::ModelBasedPlanningContext::allocPathConstrainedSampler(const ompl::base::StateSpace* ss) const
 {
-    ROS_WARN_STREAM("allocPathConstrainedSampler Moveit START?");
   if (spec_.state_space_.get() != ss)
   {
     ROS_ERROR_NAMED("model_based_planning_context",
@@ -205,7 +210,6 @@ ompl_interface::ModelBasedPlanningContext::allocPathConstrainedSampler(const omp
   }
   ROS_DEBUG_NAMED("model_based_planning_context", "%s: Allocating default state sampler for state space",
                   name_.c_str());
-  ROS_ERROR_STREAM("allocPathConstrainedSampler Moveit END?");
   if(quasi_random_sampling_)
       return spec_.state_space_->allocQuasiRandomStateSampler();
     return ss->allocDefaultStateSampler();
@@ -231,8 +235,43 @@ void ompl_interface::ModelBasedPlanningContext::configure()
   }
 
   useConfig();
-  if (ompl_simple_setup_->getGoal())
+  if (ompl_simple_setup_->getGoal()){
+
+//    if (!experience_planner_->isSetup())
+//    {
+//      ROS_WARN("Setting problem defintion for experience planner");
+//      experience_planner_->setProblemDefinition(ompl_simple_setup_->getProblemDefinition());
+//
+//      if (!experience_planner_->isSetup()) {
+//        ROS_WARN("Setting problem isSetup");
+//
+//
+//        experience_planner_->setup();
+//      }
+//    }
+    // Setup SPARS
+    if (!experienceDB_->getSPARSdb())
+    {
+      OMPL_INFORM("Calling setup() for SPARSdb");
+      std::string filePath_ = "/home/db/Robotics/ROS_WORKSPACE/moveit_ws/src/moveit/moveit_planners/ompl/ompl_interface/src/database/thunder.db";
+      // Load SPARSdb
+      experienceDB_->getSPARSdb() = std::make_shared<ompl::geometric::SPARSdb>(ompl_simple_setup_->getSpaceInformation());
+      experienceDB_->getSPARSdb()->setProblemDefinition(ompl_simple_setup_->getProblemDefinition());
+      experienceDB_->getSPARSdb()->setup();
+
+      experienceDB_->getSPARSdb()->setStretchFactor(1.2);
+      experienceDB_->getSPARSdb()->setSparseDeltaFraction(
+              0.05);  // vertex visibility range  = maximum_extent * this_fraction
+      // experienceDB_->getSPARSdb()->setDenseDeltaFraction(0.001);
+
+      experienceDB_->getSPARSdb()->printDebug();
+
+      experienceDB_->load(filePath_);  // load from file
+    }
+
     ompl_simple_setup_->setup();
+
+  }
 }
 
 void ompl_interface::ModelBasedPlanningContext::useConfig()
@@ -459,6 +498,7 @@ void ompl_interface::ModelBasedPlanningContext::setCompleteInitialState(
 void ompl_interface::ModelBasedPlanningContext::clear()
 {
   ompl_simple_setup_->clear();
+//  experience_planner_->clear();
   ompl_simple_setup_->clearStartStates();
   ompl_simple_setup_->setGoal(ob::GoalPtr());
   ompl_simple_setup_->setStateValidityChecker(ob::StateValidityCheckerPtr());
@@ -650,8 +690,9 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
   moveit::tools::Profiler::ScopedBlock sblock("PlanningContext:Solve");
   ompl::time::point start = ompl::time::now();
   preSolve();
-
+  bool use_experience = true;
   bool result = false;
+  ROS_ERROR("Max Planning Threads  %i, count %i", max_planning_threads_, count);
   if (count <= 1)
   {
     ROS_DEBUG_NAMED("model_based_planning_context", "%s: Solving the planning problem once...", name_.c_str());
@@ -675,7 +716,16 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
           ompl_parallel_plan_.addPlannerAllocator(ompl_simple_setup_->getPlannerAllocator());
       else
         for (unsigned int i = 0; i < count; ++i)
-          ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
+        {
+          if (use_experience) {
+            ROS_WARN("use_experience ?");
+            ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
+            use_experience = false;
+          }
+          else
+            ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
+
+        }
 
       ob::PlannerTerminationCondition ptc =
           ob::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
@@ -695,11 +745,23 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
       {
         ompl_parallel_plan_.clearPlanners();
         if (ompl_simple_setup_->getPlannerAllocator())
-          for (unsigned int i = 0; i < max_planning_threads_; ++i)
-            ompl_parallel_plan_.addPlannerAllocator(ompl_simple_setup_->getPlannerAllocator());
+          for (unsigned int i = 0; i < max_planning_threads_; ++i) {
+            if (use_experience) {
+              ROS_WARN("use_experience ?");
+              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
+              use_experience = false;
+            } else
+              ompl_parallel_plan_.addPlannerAllocator(ompl_simple_setup_->getPlannerAllocator());
+          }
         else
           for (unsigned int i = 0; i < max_planning_threads_; ++i)
-            ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
+            if (use_experience) {
+              ROS_WARN("use_experience ?");
+              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
+              use_experience = false;
+            }
+            else
+              ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
         bool r = ompl_parallel_plan_.solve(ptc, 1, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
         result = result && r;
       }
@@ -712,7 +774,13 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
             ompl_parallel_plan_.addPlannerAllocator(ompl_simple_setup_->getPlannerAllocator());
         else
           for (int i = 0; i < n; ++i)
-            ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
+            if (use_experience) {
+              ROS_WARN("use_experience ?");
+              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
+              use_experience = false;
+            }
+            else
+              ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
         bool r = ompl_parallel_plan_.solve(ptc, 1, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
         result = result && r;
       }
