@@ -74,6 +74,9 @@ ompl_interface::ModelBasedStateSpace::ModelBasedStateSpace(ModelBasedStateSpaceS
   params_.declareParam<double>("tag_snap_to_segment",
                                std::bind(&ModelBasedStateSpace::setTagSnapToSegment, this, std::placeholders::_1),
                                std::bind(&ModelBasedStateSpace::getTagSnapToSegment, this));
+
+  quasi_random_engine_iterator_ = quasi_random_engine_list_.begin();
+
 }
 
 ompl_interface::ModelBasedStateSpace::~ModelBasedStateSpace() = default;
@@ -283,16 +286,16 @@ ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocDefaultSt
   return ompl::base::StateSamplerPtr(static_cast<ompl::base::StateSampler*>(
       new DefaultStateSampler(this, spec_.joint_model_group_, &spec_.joint_bounds_)));
 }
-ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocQuasiRandomStateSampler() const
+ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocQuasiRandomStateSampler(std::vector<ompl::base::State*> *samples, QuasiRandomGeneratorType generator_type)
 {
   class QuasiRandomStateSampler : public ompl::base::StateSampler
   {
   public:
       QuasiRandomStateSampler(const ompl::base::StateSpace* space, const robot_model::JointModelGroup* group,
                           const robot_model::JointBoundsVector* joint_bounds,
-                          const QuasiRandomGeneratorType generator_type = QuasiRandomGeneratorType::SOBOL)
+                          const QuasiRandomGeneratorType generator_type = QuasiRandomGeneratorType::SOBOL,std::vector<ompl::base::State*> *samples = nullptr)
               : ompl::base::StateSampler(space), joint_model_group_(group), joint_bounds_(joint_bounds)
-              , moveit_rng_(0, group->getActiveJointModels().size())
+              , moveit_rng_(0, group->getActiveJointModels().size()), samples_(std::move(samples))
       {
         if (generator_type == QuasiRandomGeneratorType::NIEDERREITER_2)
           quasi_rng_fun_ = std::bind(&random_numbers::RandomNumberGenerator::niederreiter2Real,&moveit_rng_,std::placeholders::_1,
@@ -303,11 +306,23 @@ ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocQuasiRand
         else if (generator_type == QuasiRandomGeneratorType::FAURE)
           quasi_rng_fun_ = std::bind(&random_numbers::RandomNumberGenerator::faureReal,&moveit_rng_,std::placeholders::_1,
                                  std::placeholders::_2);
+        else if (generator_type == QuasiRandomGeneratorType::RANDOM)
+          quasi_rng_fun_ = std::bind(&random_numbers::RandomNumberGenerator::uniformReal,&moveit_rng_,std::placeholders::_1,
+                                     std::placeholders::_2);
+        ROS_WARN("allocQuasiRandomStateSampler quasi");
+
       }
 
       void sampleUniform(ompl::base::State* state) override
       {
+        ROS_WARN("sampleUniform quasi");
         joint_model_group_->getVariableQuasiRandomPositions(quasi_rng_fun_, state->as<StateType>()->values, *joint_bounds_);
+        samples_->push_back(state);
+
+       // robot_state->setJointGroupPositions(joint_model_group_, state->as<StateType>()->values);
+        //robot_state->update();
+//        robot_state->getGlobalLinkTransform();
+
         state->as<StateType>()->clearKnownInformation();
       }
       void sampleUniformNear(ompl::base::State* state, const ompl::base::State* near, const double distance) override
@@ -327,10 +342,15 @@ ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocQuasiRand
       std::function<double(double,double)> quasi_rng_fun_;
       const moveit::core::JointModelGroup *joint_model_group_;
       const robot_model::JointBoundsVector* joint_bounds_;
-  };
 
+
+       //Visualize
+       std::vector<ompl::base::State*> *samples_;
+  };
+ROS_WARN("CZy tu wchodze");
   return ompl::base::StateSamplerPtr(static_cast<ompl::base::StateSampler*>(
-                                             new QuasiRandomStateSampler(this, spec_.joint_model_group_, &spec_.joint_bounds_)));
+                                             new QuasiRandomStateSampler(this, spec_.joint_model_group_, &spec_.joint_bounds_,
+                                                                         generator_type, samples)));
 }
 
 void ompl_interface::ModelBasedStateSpace::printSettings(std::ostream& out) const

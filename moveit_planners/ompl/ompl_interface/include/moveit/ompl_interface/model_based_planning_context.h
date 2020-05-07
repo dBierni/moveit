@@ -50,14 +50,13 @@
 #include <ompl/geometric/planners/experience/ThunderRetrieveRepair.h>
 #include <ompl/tools/thunder/ThunderDB.h>
 #include <ompl/tools/experience/ExperienceSetup.h>
-#include <bolt_core/Bolt.h>
+#include <rviz_visual_tools/rviz_visual_tools.h>
 
 namespace ompl_interface
 {
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 namespace ot = ompl::tools;
-namespace otb = ompl::tools::bolt;
 
 MOVEIT_CLASS_FORWARD(ModelBasedPlanningContext);
 MOVEIT_CLASS_FORWARD(ConstraintsLibrary);
@@ -313,6 +312,7 @@ public:
 
   virtual void configure();
 
+  Eigen::Isometry3d stateToPose(ompl::base::State*);
 protected:
   void preSolve();
   void postSolve();
@@ -338,10 +338,18 @@ protected:
   ot::ThunderDBPtr experienceDB_;
   ob::PlannerPtr experience_planner_;
 
+  std::vector<ompl::base::State*> *faure_states;
+  std::vector<ompl::base::State*> *niederreiter_states;
+  std::vector<ompl::base::State*> *sobol_states;
+  std::vector<ompl::base::State*> *random_states;
+
+  std::vector<std::vector<ompl::base::State*>*> *states_;
+  mutable std::vector<std::vector<ompl::base::State*>*>::iterator states_iter;
+  rviz_visual_tools::RvizVisualToolsPtr visuals_;
+
+  mutable int sequence_number_;
   // Save the experience setup until the program ends so that the planner data is not lost
   ot::ExperienceSetupPtr experience_setup_;
-  og::SimpleSetupPtr experience_simple_setup_;
-  otb::BoltPtr bolt_;
 
     /// the OMPL tool for benchmarking planners
   ot::Benchmark ompl_benchmark_;

@@ -199,10 +199,6 @@ public:
   void deserialize(ompl::base::State* state, const void* serialization) const override;
   double* getValueAddressAtIndex(ompl::base::State* state, const unsigned int index) const override;
 
-  ompl::base::StateSamplerPtr allocDefaultStateSampler() const override;
-
-  ompl::base::StateSamplerPtr allocQuasiRandomStateSampler() const;
-
   enum QuasiRandomGeneratorType
   {
       NIEDERREITER_2,
@@ -211,12 +207,31 @@ public:
 
       FAURE,
 
+      RANDOM,
+
   };
 
-  void setQuasiRandomEngineType(QuasiRandomGeneratorType type)
+//  void setQuasiRandomEngineType(QuasiRandomGeneratorType type)
+//  {
+//    quasi_random_engine_type_ = type;
+//  }
+  QuasiRandomGeneratorType getNextGenerator()
   {
-    quasi_random_engine_type_ = type;
+    if(quasi_random_engine_iterator_ == quasi_random_engine_list_.end())
+      quasi_random_engine_iterator_ = quasi_random_engine_list_.begin();
+
+    ROS_WARN("ZWRACAMNextGenerator");
+    std::cout << *quasi_random_engine_iterator_ << std::endl;
+    return *(quasi_random_engine_iterator_)++;
   }
+  void setStartGenerator(){
+      quasi_random_engine_iterator_ = quasi_random_engine_list_.begin();
+  }
+
+  ompl::base::StateSamplerPtr allocDefaultStateSampler() const override;
+
+  ompl::base::StateSamplerPtr allocQuasiRandomStateSampler(std::vector<ompl::base::State*> *, QuasiRandomGeneratorType);
+
 
   const robot_model::RobotModelConstPtr& getRobotModel() const
   {
@@ -280,12 +295,15 @@ protected:
   unsigned int variable_count_;
   size_t state_values_size_;
 
+
   InterpolationFunction interpolation_function_;
   DistanceFunction distance_function_;
 
   double tag_snap_to_segment_;
   double tag_snap_to_segment_complement_;
-  QuasiRandomGeneratorType quasi_random_engine_type_;
+  std::vector<QuasiRandomGeneratorType> quasi_random_engine_list_ = {NIEDERREITER_2,SOBOL,FAURE ,RANDOM};
+
+  std::vector<QuasiRandomGeneratorType>::const_iterator quasi_random_engine_iterator_;
 
 };
 }  // namespace ompl_interface
