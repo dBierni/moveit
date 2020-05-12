@@ -19,7 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   pluginlib
   tf2_ros
   dynamic_reconfigure
-
+  moveit_visual_tools
   )
 
 find_package(ompl REQUIRED)

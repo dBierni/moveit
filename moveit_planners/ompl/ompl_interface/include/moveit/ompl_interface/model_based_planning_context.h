@@ -51,7 +51,7 @@
 #include <ompl/tools/thunder/ThunderDB.h>
 #include <ompl/tools/experience/ExperienceSetup.h>
 #include <rviz_visual_tools/rviz_visual_tools.h>
-
+#include <moveit_visual_tools/moveit_visual_tools.h>
 namespace ompl_interface
 {
 namespace ob = ompl::base;
@@ -313,6 +313,8 @@ public:
   virtual void configure();
 
   Eigen::Isometry3d stateToPose(ompl::base::State*);
+  geometry_msgs::Point publishRobotState(const ompl::base::State* state);
+
 protected:
   void preSolve();
   void postSolve();
@@ -338,14 +340,16 @@ protected:
   ot::ThunderDBPtr experienceDB_;
   ob::PlannerPtr experience_planner_;
 
-  std::vector<ompl::base::State*> *faure_states;
-  std::vector<ompl::base::State*> *niederreiter_states;
-  std::vector<ompl::base::State*> *sobol_states;
-  std::vector<ompl::base::State*> *random_states;
+  const std::function<geometry_msgs::Point(const ompl::base::State*)> publish_state_fun_;
+  std::vector<geometry_msgs::Point > *faure_states;
+  std::vector<geometry_msgs::Point > *niederreiter_states;
+  std::vector<geometry_msgs::Point > *sobol_states;
+  std::vector<geometry_msgs::Point > *random_states;
+  moveit::core::RobotStatePtr robot_visual_;
 
-  std::vector<std::vector<ompl::base::State*>*> *states_;
-  mutable std::vector<std::vector<ompl::base::State*>*>::iterator states_iter;
-  rviz_visual_tools::RvizVisualToolsPtr visuals_;
+  std::vector<std::vector<geometry_msgs::Point >*> *states_;
+  mutable std::vector<std::vector<geometry_msgs::Point >*>::iterator states_iter;
+  moveit_visual_tools::MoveItVisualToolsPtr visuals_;
 
   mutable int sequence_number_;
   // Save the experience setup until the program ends so that the planner data is not lost

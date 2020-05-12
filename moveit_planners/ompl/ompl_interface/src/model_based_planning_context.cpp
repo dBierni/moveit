@@ -79,6 +79,7 @@ ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::
   , use_state_validity_cache_(true)
   , simplify_solutions_(true)
   , quasi_random_sampling_(true)
+  , publish_state_fun_(std::bind(&ModelBasedPlanningContext::publishRobotState,this,std::placeholders::_1))
 {
 
   complete_initial_robot_state_.update();
@@ -93,12 +94,12 @@ ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::
 
   //  Vectors used to keep generated samples TODO(DB) hardcoded
   sequence_number_ = 0;
-  niederreiter_states = new std::vector<ompl::base::State*>();
-  sobol_states = new std::vector<ompl::base::State*>();
-  faure_states = new std::vector<ompl::base::State*>();
-  random_states = new std::vector<ompl::base::State*>();
+  niederreiter_states = new std::vector<geometry_msgs::Point >();
+  sobol_states = new std::vector<geometry_msgs::Point >();
+  faure_states = new std::vector<geometry_msgs::Point >();
+  random_states = new std::vector<geometry_msgs::Point >();
 
-  states_ = new std::vector<std::vector<ompl::base::State*>*>();
+  states_ = new std::vector<std::vector<geometry_msgs::Point >*>();
 
   states_->push_back(niederreiter_states);
   states_->push_back(sobol_states);
@@ -106,6 +107,23 @@ ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::
   states_->push_back(random_states);
   states_iter = states_->begin();
 
+
+//  visuals_ = std::make_shared<moveit_visual_tools::MoveItVisualTools>("world","/moveit_visual_tools", spec_.state_space_->getRobotModel());
+  visuals_.reset(new moveit_visual_tools::MoveItVisualTools("world", "/moveit_visual_tool"));
+//  visuals_->loadPlanningSceneMonitor();
+  visuals_->loadMarkerPub(true);
+  robot_visual_ = visuals_->getSharedRobotState();
+  visuals_->loadTrajectoryPub();
+ // visuals_->loadRobotStatePub("display_robot_state");
+
+
+  //visuals_->loadRvizMarkers();
+//  visuals_->setManualSceneUpdating();
+
+//  visuals_ = new moveit_visual_tools::MoveItVisualTools("/world","/sample", spec_.state_space_->getRobotModel());
+
+
+ // publish_state_fun_ = std::bind(&ModelBasedPlanningContext::publishRobotState,this,std::placeholders::_1);
 
 }
 
@@ -219,18 +237,16 @@ ompl_interface::ModelBasedPlanningContext::allocPathConstrainedSampler(const omp
   ROS_DEBUG_NAMED("model_based_planning_context", "%s: Allocating default state sampler for state space",
                   name_.c_str());
 
+  if (quasi_random_sampling_) // It only works,
+  {
+    if (states_iter == states_->end())
+      return spec_.state_space_->allocQuasiRandomStateSampler(nullptr, spec_.state_space_->getNextGenerator(),
+                                                              publish_state_fun_);
+    else
+      return spec_.state_space_->allocQuasiRandomStateSampler(*(states_iter)++, spec_.state_space_->getNextGenerator(),
+                                                              publish_state_fun_);
 
-  if (quasi_random_sampling_) { // It only works,
-//    sequence_number_ =  sequence_number_ + 1 ;
-//    if (sequence_number_ == 1)
-//      return spec_.state_space_->allocQuasiRandomStateSampler(niederreiter_states, spec_.state_space_->getNextGenerator(sequence_number_));
-//    else if (sequence_number_ == 2)
-//      return spec_.state_space_->allocQuasiRandomStateSampler(faure_states, spec_.state_space_->getNextGenerator(sequence_number_));
-//    else if (sequence_number_ == 3)
-//      return spec_.state_space_->allocQuasiRandomStateSampler(sobol_states, spec_.state_space_->getNextGenerator(sequence_number_));
-//    else
-      ROS_WARN("quasi_random_sampling_");
-      return spec_.state_space_->allocQuasiRandomStateSampler(*(states_iter), spec_.state_space_->getNextGenerator());
+
   }
     return ss->allocDefaultStateSampler();
 }
@@ -710,13 +726,20 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
   states_iter = states_->begin();
   // Each thread start with diffrent sampling method
   spec_.state_space_->setStartGenerator();
+  niederreiter_states ->clear();
+  sobol_states ->clear();
+  faure_states ->clear();
+  random_states ->clear();
+  visuals_->deleteAllMarkers();
+  visuals_->enableBatchPublishing(true);
+
 
   moveit::tools::Profiler::ScopedBlock sblock("PlanningContext:Solve");
   ompl::time::point start = ompl::time::now();
   preSolve();
   bool use_experience = true;
   bool result = false;
-  ROS_ERROR("Max Planning Threads  %i, count %i", max_planning_threads_, count);
+  count = 4; // TODO HARDCODED because of 4 sampling methods
   if (count <= 1)
   {
     ROS_DEBUG_NAMED("model_based_planning_context", "%s: Solving the planning problem once...", name_.c_str());
@@ -740,16 +763,7 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
           ompl_parallel_plan_.addPlannerAllocator(ompl_simple_setup_->getPlannerAllocator());
       else
         for (unsigned int i = 0; i < count; ++i)
-        {
-//          if (use_experience) {
-//            ROS_WARN("use_experience ?");
-//            ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
-//            use_experience = false;
-//          }
-//          else
             ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
-
-        }
 
       ob::PlannerTerminationCondition ptc =
           ob::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
@@ -769,23 +783,13 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
       {
         ompl_parallel_plan_.clearPlanners();
         if (ompl_simple_setup_->getPlannerAllocator())
-          for (unsigned int i = 0; i < max_planning_threads_; ++i) {
-//            if (use_experience) {
-//              ROS_WARN("use_experience ?");
-//              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
-//              use_experience = false;
-//            } else
+          for (unsigned int i = 0; i < max_planning_threads_; ++i)
               ompl_parallel_plan_.addPlannerAllocator(ompl_simple_setup_->getPlannerAllocator());
-          }
+
         else
           for (unsigned int i = 0; i < max_planning_threads_; ++i)
-//            if (use_experience) {
-//              ROS_WARN("use_experience ?");
-//              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
-//              use_experience = false;
-//            }
-//            else
-              ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
+            ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
+
         bool r = ompl_parallel_plan_.solve(ptc, 1, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
         result = result && r;
       }
@@ -798,13 +802,7 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
             ompl_parallel_plan_.addPlannerAllocator(ompl_simple_setup_->getPlannerAllocator());
         else
           for (int i = 0; i < n; ++i)
-//            if (use_experience) {
-//              ROS_WARN("use_experience ?");
-//              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
-//              use_experience = false;
-//            }
-//            else
-              ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
+            ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
         bool r = ompl_parallel_plan_.solve(ptc, 1, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
         result = result && r;
       }
@@ -815,11 +813,23 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
 
   postSolve();
   ROS_WARN("ModelBasedPlanningContext end");
-  sequence_number_ = 0;
-  niederreiter_states ->clear();
-  sobol_states ->clear();
-  faure_states ->clear();
-  random_states ->clear();
+
+  ROS_INFO_STREAM("Publishing Niederretier samples:"<<"(" << niederreiter_states->size() << "): " <<
+  (visuals_->publishSpheres(*niederreiter_states,rviz_visual_tools::RED,rviz_visual_tools::XLARGE) ? "True": "False"));
+  ROS_INFO_STREAM("Publishing Sobol samples:"<<"(" << sobol_states->size() << "): " <<
+  (visuals_->publishSpheres(*sobol_states,rviz_visual_tools::GREEN,rviz_visual_tools::XLARGE) ? "True": "False"));
+  ROS_INFO_STREAM("Publishing Faure samples:"<<"(" << faure_states->size() << "): " <<
+  (visuals_->publishSpheres(*faure_states,rviz_visual_tools::BLUE,rviz_visual_tools::XLARGE) ? "True": "False"));
+  ROS_INFO_STREAM("Publishing Random samples:"<<"(" << random_states->size() << "): " <<
+  (visuals_->publishSpheres(*random_states,rviz_visual_tools::CYAN,rviz_visual_tools::XLARGE) ? "True": "False"));
+
+  robot_trajectory::RobotTrajectory traj(spec_.state_space_->getRobotModel(), spec_.state_space_->getJointModelGroup());
+visuals_->publishP
+ convertPath(ompl_simple_setup_->getSolutionPath(),traj);
+  visuals_->publishTrajectoryPath(traj);
+  visuals_->trigger();
+
+
   return result;
 }
 
@@ -845,8 +855,23 @@ bool ompl_interface::ModelBasedPlanningContext::terminate()
 
 Eigen::Isometry3d ompl_interface::ModelBasedPlanningContext::stateToPose(ompl::base::State* state)
 {
+  visuals_->loadSharedRobotState();
+  spec_.state_space_->copyToRobotState(*visuals_->getSharedRobotState(), state);
+  visuals_->publishRobotState(*visuals_->getSharedRobotState());
 
-  spec_.state_space_->copyToRobotState(spec_.state_space_->getRobotModel(), state);
+}
+geometry_msgs::Point ompl_interface::ModelBasedPlanningContext::publishRobotState(const ompl::base::State* state)
+{
+  spec_.state_space_->copyToRobotState(*robot_visual_, state);
+  //visuals_->publishRobotState(*visuals_->getSharedRobotState(),visuals_->getRandColor());
+//  Eigen::Affine3d pose1 =  visuals_->getSharedRobotState()->getGlobalLinkTransform("tool0");
 
+//  ROS_WARN_STREAM(pose1.translation().x() <<" | "<< pose1.translation().y() <<" | "<< pose1.translation().z());
+//  const std::vector<std::string > & link_name = visuals_->getRobotModel()->getLinkModelNames();
+//  for (auto &e : link_name)
+//    ROS_WARN_STREAM(e);
+
+//  visuals_->publishSphere(pose1.translation(),visuals_->getRandColor());
+  return visuals_->convertPoint(robot_visual_->getGlobalLinkTransform("tool0").translation());;
 
 }

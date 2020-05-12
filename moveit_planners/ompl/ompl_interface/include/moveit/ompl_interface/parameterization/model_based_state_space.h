@@ -220,8 +220,7 @@ public:
     if(quasi_random_engine_iterator_ == quasi_random_engine_list_.end())
       quasi_random_engine_iterator_ = quasi_random_engine_list_.begin();
 
-    ROS_WARN("ZWRACAMNextGenerator");
-    std::cout << *quasi_random_engine_iterator_ << std::endl;
+//    std::cout << *quasi_random_engine_iterator_ << std::endl;
     return *(quasi_random_engine_iterator_)++;
   }
   void setStartGenerator(){
@@ -230,7 +229,8 @@ public:
 
   ompl::base::StateSamplerPtr allocDefaultStateSampler() const override;
 
-  ompl::base::StateSamplerPtr allocQuasiRandomStateSampler(std::vector<ompl::base::State*> *, QuasiRandomGeneratorType);
+  ompl::base::StateSamplerPtr allocQuasiRandomStateSampler(std::vector<geometry_msgs::Point > *, QuasiRandomGeneratorType,
+           std::function<geometry_msgs::Point(const ompl::base::State *)>);
 
 
   const robot_model::RobotModelConstPtr& getRobotModel() const
