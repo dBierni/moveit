@@ -313,7 +313,9 @@ public:
   virtual void configure();
 
   Eigen::Isometry3d stateToPose(ompl::base::State*);
-  geometry_msgs::Point publishRobotState(const ompl::base::State* state);
+  geometry_msgs::Point stateToPoint(const ompl::base::State* state);
+  std::vector<geometry_msgs::Point> solutionPathWayPoints(const std::vector<ompl::base::State*>& states);
+
 
 protected:
   void preSolve();
@@ -346,8 +348,10 @@ protected:
   std::vector<geometry_msgs::Point > *sobol_states;
   std::vector<geometry_msgs::Point > *random_states;
   moveit::core::RobotStatePtr robot_visual_;
+  std::vector<geometry_msgs::Point> path;
 
-  std::vector<std::vector<geometry_msgs::Point >*> *states_;
+
+    std::vector<std::vector<geometry_msgs::Point >*> *states_;
   mutable std::vector<std::vector<geometry_msgs::Point >*>::iterator states_iter;
   moveit_visual_tools::MoveItVisualToolsPtr visuals_;
 

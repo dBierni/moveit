@@ -79,7 +79,7 @@ ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::
   , use_state_validity_cache_(true)
   , simplify_solutions_(true)
   , quasi_random_sampling_(true)
-  , publish_state_fun_(std::bind(&ModelBasedPlanningContext::publishRobotState,this,std::placeholders::_1))
+  , publish_state_fun_(std::bind(&ModelBasedPlanningContext::stateToPoint,this,std::placeholders::_1))
 {
 
   complete_initial_robot_state_.update();
@@ -113,8 +113,8 @@ ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::
 //  visuals_->loadPlanningSceneMonitor();
   visuals_->loadMarkerPub(true);
   robot_visual_ = visuals_->getSharedRobotState();
-  visuals_->loadTrajectoryPub();
- // visuals_->loadRobotStatePub("display_robot_state");
+//  visuals_->loadTrajectoryPub();
+// visuals_->loadRobotStatePub("display_robot_state");
 
 
   //visuals_->loadRvizMarkers();
@@ -123,7 +123,7 @@ ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::
 //  visuals_ = new moveit_visual_tools::MoveItVisualTools("/world","/sample", spec_.state_space_->getRobotModel());
 
 
- // publish_state_fun_ = std::bind(&ModelBasedPlanningContext::publishRobotState,this,std::placeholders::_1);
+ // publish_state_fun_ = std::bind(&ModelBasedPlanningContext::stateToPoint,this,std::placeholders::_1);
 
 }
 
@@ -449,12 +449,14 @@ void ompl_interface::ModelBasedPlanningContext::interpolateSolution()
 {
   if (ompl_simple_setup_->haveSolutionPath())
   {
+
     og::PathGeometric& pg = ompl_simple_setup_->getSolutionPath();
 
     // Find the number of states that will be in the interpolated solution.
     // This is what interpolate() does internally.
     unsigned int eventual_states = 1;
     std::vector<ompl::base::State*> states = pg.getStates();
+
     for (size_t i = 0; i < states.size() - 1; i++)
     {
       eventual_states += ompl_simple_setup_->getStateSpace()->validSegmentCount(states[i], states[i + 1]);
@@ -470,6 +472,15 @@ void ompl_interface::ModelBasedPlanningContext::interpolateSolution()
       // Interpolate the path to have as the exact states that are checked when validating motions.
       pg.interpolate();
     }
+
+//    std::vector<geometry_msgs::Point> result;
+//    std::vector<ompl::base::State*> path_states = pg.getStates();
+//    for (auto state: states)
+//    {
+//      result.push_back(stateToPoint(state));
+//    }
+//    visuals_->publishLineStrip(solutionPathWayPoints(pg.getStates()), rviz_visual_tools::LIME_GREEN , rviz_visual_tools::LARGE);
+    visuals_->trigger();
   }
 }
 
@@ -731,7 +742,11 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
   faure_states ->clear();
   random_states ->clear();
   visuals_->deleteAllMarkers();
+  visualization_msgs::MarkerArray empty;
+  visuals_->publishMarkers(empty);
+  visuals_->trigger();
   visuals_->enableBatchPublishing(true);
+
 
 
   moveit::tools::Profiler::ScopedBlock sblock("PlanningContext:Solve");
@@ -823,13 +838,10 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
   ROS_INFO_STREAM("Publishing Random samples:"<<"(" << random_states->size() << "): " <<
   (visuals_->publishSpheres(*random_states,rviz_visual_tools::CYAN,rviz_visual_tools::XLARGE) ? "True": "False"));
 
-  robot_trajectory::RobotTrajectory traj(spec_.state_space_->getRobotModel(), spec_.state_space_->getJointModelGroup());
-visuals_->publishP
- convertPath(ompl_simple_setup_->getSolutionPath(),traj);
-  visuals_->publishTrajectoryPath(traj);
-  visuals_->trigger();
-
-
+//  visuals_->publishLineStrip(solutionPathWayPoints(ompl_simple_setup_->getSolutionPath().getStates()), rviz_visual_tools::RED , rviz_visual_tools::LARGE);
+  const ob::PlannerDataPtr planner_data( new ob::PlannerData( ompl_simple_setup_->getSpaceInformation() ) );
+  ompl_simple_setup_->getPlannerData( *planner_data );
+  visuals_->publishGraph(planner_data, rviz_visual_tools::ORANGE, 0.2, "tree");
   return result;
 }
 
@@ -860,10 +872,10 @@ Eigen::Isometry3d ompl_interface::ModelBasedPlanningContext::stateToPose(ompl::b
   visuals_->publishRobotState(*visuals_->getSharedRobotState());
 
 }
-geometry_msgs::Point ompl_interface::ModelBasedPlanningContext::publishRobotState(const ompl::base::State* state)
+geometry_msgs::Point ompl_interface::ModelBasedPlanningContext::stateToPoint(const ompl::base::State* state)
 {
   spec_.state_space_->copyToRobotState(*robot_visual_, state);
-  //visuals_->publishRobotState(*visuals_->getSharedRobotState(),visuals_->getRandColor());
+  //visuals_->stateToPoint(*visuals_->getSharedRobotState(),visuals_->getRandColor());
 //  Eigen::Affine3d pose1 =  visuals_->getSharedRobotState()->getGlobalLinkTransform("tool0");
 
 //  ROS_WARN_STREAM(pose1.translation().x() <<" | "<< pose1.translation().y() <<" | "<< pose1.translation().z());
@@ -871,7 +883,24 @@ geometry_msgs::Point ompl_interface::ModelBasedPlanningContext::publishRobotStat
 //  for (auto &e : link_name)
 //    ROS_WARN_STREAM(e);
 
-//  visuals_->publishSphere(pose1.translation(),visuals_->getRandColor());
   return visuals_->convertPoint(robot_visual_->getGlobalLinkTransform("tool0").translation());;
+}
+
+std::vector<geometry_msgs::Point> ompl_interface::ModelBasedPlanningContext::solutionPathWayPoints(const std::vector<ompl::base::State*>& states)
+{
+  std::vector<geometry_msgs::Point> result;
+//  og::PathGeometric& pg = ompl_simple_setup_->getSolutionPath();
+//  std::vector<ompl::base::State*> states = ompl_simple_setup_->getSolutionPath().getStates();
+
+  for (auto state: states)
+  {
+    result.push_back(stateToPoint(state));
+  }
+//  visuals_->loadSharedRobotState();
+//  spec_.state_space_->copyToRobotState(*visuals_->getSharedRobotState(), *(states.end()-1));
+//  visuals_->publishRobotState(*visuals_->getSharedRobotState());
+
+  return result;
+
 
 }
