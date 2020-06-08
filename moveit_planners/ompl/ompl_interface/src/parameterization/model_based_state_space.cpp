@@ -320,13 +320,13 @@ ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocQuasiRand
         joint_model_group_->getVariableQuasiRandomPositions(quasi_rng_fun_, state->as<StateType>()->values, *joint_bounds_);
 //        samples_->push_back(visual_fun_(state));
     //  if(gen_type_ == QuasiRandomGeneratorType::NIEDERREITER_2)
-        if(samples_ != nullptr)
-            samples_->push_back(visual_fun_(state));
+       // if(samples_ != nullptr)
+         //   samples_->push_back(visual_fun_(state));
 
 
        // robot_state->setJointGroupPositions(joint_model_group_, state->as<StateType>()->values);
         //robot_state->update();
-//        robot_state->getGlobalLinkTransform();
+        //        robot_state->getGlobalLinkTransform();
 
         state->as<StateType>()->clearKnownInformation();
       }

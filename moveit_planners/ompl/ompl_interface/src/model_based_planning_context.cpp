@@ -239,6 +239,7 @@ ompl_interface::ModelBasedPlanningContext::allocPathConstrainedSampler(const omp
 
   if (quasi_random_sampling_) // It only works,
   {
+
     if (states_iter == states_->end())
       return spec_.state_space_->allocQuasiRandomStateSampler(nullptr, spec_.state_space_->getNextGenerator(),
                                                               publish_state_fun_);
@@ -479,7 +480,7 @@ void ompl_interface::ModelBasedPlanningContext::interpolateSolution()
 //    {
 //      result.push_back(stateToPoint(state));
 //    }
-//    visuals_->publishLineStrip(solutionPathWayPoints(pg.getStates()), rviz_visual_tools::LIME_GREEN , rviz_visual_tools::LARGE);
+    visuals_->publishLineStrip(solutionPathWayPoints(pg.getStates()), rviz_visual_tools::LIME_GREEN , rviz_visual_tools::LARGE);
     visuals_->trigger();
   }
 }
@@ -754,7 +755,6 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
   preSolve();
   bool use_experience = true;
   bool result = false;
-  count = 4; // TODO HARDCODED because of 4 sampling methods
   if (count <= 1)
   {
     ROS_DEBUG_NAMED("model_based_planning_context", "%s: Solving the planning problem once...", name_.c_str());
@@ -828,7 +828,6 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
 
   postSolve();
   ROS_WARN("ModelBasedPlanningContext end");
-
   ROS_INFO_STREAM("Publishing Niederretier samples:"<<"(" << niederreiter_states->size() << "): " <<
   (visuals_->publishSpheres(*niederreiter_states,rviz_visual_tools::RED,rviz_visual_tools::XLARGE) ? "True": "False"));
   ROS_INFO_STREAM("Publishing Sobol samples:"<<"(" << sobol_states->size() << "): " <<
@@ -838,10 +837,10 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
   ROS_INFO_STREAM("Publishing Random samples:"<<"(" << random_states->size() << "): " <<
   (visuals_->publishSpheres(*random_states,rviz_visual_tools::CYAN,rviz_visual_tools::XLARGE) ? "True": "False"));
 
-//  visuals_->publishLineStrip(solutionPathWayPoints(ompl_simple_setup_->getSolutionPath().getStates()), rviz_visual_tools::RED , rviz_visual_tools::LARGE);
-  const ob::PlannerDataPtr planner_data( new ob::PlannerData( ompl_simple_setup_->getSpaceInformation() ) );
-  ompl_simple_setup_->getPlannerData( *planner_data );
-  visuals_->publishGraph(planner_data, rviz_visual_tools::ORANGE, 0.2, "tree");
+  visuals_->publishLineStrip(solutionPathWayPoints(ompl_simple_setup_->getSolutionPath().getStates()), rviz_visual_tools::RED , rviz_visual_tools::LARGE);
+//  const ob::PlannerDataPtr planner_data( new ob::PlannerData( ompl_simple_setup_->getSpaceInformation() ) );
+//  ompl_simple_setup_->getPlannerData( *planner_data );
+//  visuals_->publishGraph(planner_data, rviz_visual_tools::ORANGE, 0.2, "tree");
   return result;
 }
 
