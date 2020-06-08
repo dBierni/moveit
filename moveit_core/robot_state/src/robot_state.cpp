@@ -463,12 +463,13 @@ void RobotState::setJointGroupPositions(const JointModelGroup* group, const doub
 {
   const std::vector<int>& il = group->getVariableIndexList();
   if (group->isContiguousWithinState())
-    memcpy(position_ + il[0], gstate, group->getVariableCount() * sizeof(double));
+      memcpy(position_ + il[0], gstate, group->getVariableCount() * sizeof(double));
   else
   {
     for (std::size_t i = 0; i < il.size(); ++i)
       position_[il[i]] = gstate[i];
   }
+
   updateMimicJoints(group);
 }
 

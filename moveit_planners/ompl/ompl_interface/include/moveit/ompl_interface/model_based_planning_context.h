@@ -50,14 +50,13 @@
 #include <ompl/geometric/planners/experience/ThunderRetrieveRepair.h>
 #include <ompl/tools/thunder/ThunderDB.h>
 #include <ompl/tools/experience/ExperienceSetup.h>
-#include <bolt_core/Bolt.h>
-
+#include <rviz_visual_tools/rviz_visual_tools.h>
+#include <moveit_visual_tools/moveit_visual_tools.h>
 namespace ompl_interface
 {
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 namespace ot = ompl::tools;
-namespace otb = ompl::tools::bolt;
 
 MOVEIT_CLASS_FORWARD(ModelBasedPlanningContext);
 MOVEIT_CLASS_FORWARD(ConstraintsLibrary);
@@ -313,6 +312,11 @@ public:
 
   virtual void configure();
 
+  Eigen::Isometry3d stateToPose(ompl::base::State*);
+  geometry_msgs::Point stateToPoint(const ompl::base::State* state);
+  std::vector<geometry_msgs::Point> solutionPathWayPoints(const std::vector<ompl::base::State*>& states);
+
+
 protected:
   void preSolve();
   void postSolve();
@@ -338,10 +342,22 @@ protected:
   ot::ThunderDBPtr experienceDB_;
   ob::PlannerPtr experience_planner_;
 
+  const std::function<geometry_msgs::Point(const ompl::base::State*)> publish_state_fun_;
+  std::vector<geometry_msgs::Point > *faure_states;
+  std::vector<geometry_msgs::Point > *niederreiter_states;
+  std::vector<geometry_msgs::Point > *sobol_states;
+  std::vector<geometry_msgs::Point > *random_states;
+  moveit::core::RobotStatePtr robot_visual_;
+  std::vector<geometry_msgs::Point> path;
+
+
+    std::vector<std::vector<geometry_msgs::Point >*> *states_;
+  mutable std::vector<std::vector<geometry_msgs::Point >*>::iterator states_iter;
+  moveit_visual_tools::MoveItVisualToolsPtr visuals_;
+
+  mutable int sequence_number_;
   // Save the experience setup until the program ends so that the planner data is not lost
   ot::ExperienceSetupPtr experience_setup_;
-  og::SimpleSetupPtr experience_simple_setup_;
-  otb::BoltPtr bolt_;
 
     /// the OMPL tool for benchmarking planners
   ot::Benchmark ompl_benchmark_;
