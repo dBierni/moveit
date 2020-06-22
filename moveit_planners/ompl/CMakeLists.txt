@@ -20,7 +20,9 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
   dynamic_reconfigure
   moveit_visual_tools
-  )
+  bolt_core
+  moveit_ompl
+        )
 
 find_package(ompl REQUIRED)
 
@@ -35,6 +37,8 @@ catkin_package(
     moveit_core
   DEPENDS
     OMPL
+    bolt_core
+    moveit_ompl
 )
 
 include_directories(ompl_interface/include

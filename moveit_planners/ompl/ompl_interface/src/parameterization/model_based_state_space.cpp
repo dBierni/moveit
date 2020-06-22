@@ -59,12 +59,33 @@ ompl_interface::ModelBasedStateSpace::ModelBasedStateSpace(ModelBasedStateSpaceS
   if (spec_.joint_bounds_.empty())
     spec_.joint_bounds_ = spec_.joint_model_group_->getActiveJointModelsBounds();
 
+
   // new perform a deep copy of the bounds, in case we need to modify them
   joint_bounds_storage_.resize(spec_.joint_bounds_.size());
   for (std::size_t i = 0; i < joint_bounds_storage_.size(); ++i)
   {
     joint_bounds_storage_[i] = *spec_.joint_bounds_[i];
     spec_.joint_bounds_[i] = &joint_bounds_storage_[i];
+
+  }
+  bounds_.resize(joint_bounds_storage_.size());
+  for (std::size_t i = 0; i < joint_bounds_storage_.size(); ++i)
+  {
+    // Get the variable bounds - only 1 var supported currently
+    const std::vector<moveit::core::VariableBounds> &var_bounds = joint_bounds_storage_[i];
+    if (var_bounds.size() != 1)
+    {
+      ROS_ERROR_STREAM("JointModel does not have just one variable - feature not supported yet! " << var_bounds.size());
+      exit(-1);
+    }
+
+    // Convert to OMPL format
+    bounds_.setLow(i, var_bounds.front().min_position_);
+    bounds_.setHigh(i, var_bounds.front().max_position_);
+
+    // Debug
+    // std::cout << "JointModel: " << spec_.joint_model_group_->getActiveJointModels()[i]->getName() << " has bounds ["
+    //<< var_bounds.front().min_position_ << ", " << var_bounds.front().max_position_ << "]" << std::endl;
   }
 
   // default settings

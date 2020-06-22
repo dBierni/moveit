@@ -52,11 +52,18 @@
 #include <ompl/tools/experience/ExperienceSetup.h>
 #include <rviz_visual_tools/rviz_visual_tools.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
+#include <bolt_core/Bolt.h>
+#include <bolt_core/SparseGenerator.h>
+#include <bolt_core/BoostGraphHeaders.h>
+#include <bolt_core/SparseGraph.h>
+
+
 namespace ompl_interface
 {
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 namespace ot = ompl::tools;
+namespace otb = ompl::tools::bolt;
 
 MOVEIT_CLASS_FORWARD(ModelBasedPlanningContext);
 MOVEIT_CLASS_FORWARD(ConstraintsLibrary);
@@ -77,6 +84,8 @@ struct ModelBasedPlanningContextSpecification
   ModelBasedStateSpacePtr state_space_;
   std::vector<ModelBasedStateSpacePtr> subspaces_;
   og::SimpleSetupPtr ompl_simple_setup_;  // pass in the correct simple setup type
+  otb::BoltPtr bolt_;
+
 };
 
 class ModelBasedPlanningContext : public planning_interface::PlanningContext
@@ -86,6 +95,34 @@ public:
 
   ~ModelBasedPlanningContext() override
   {
+    if (niederreiter_states)
+    {
+      niederreiter_states->clear();
+      delete niederreiter_states;
+    }
+    if (sobol_states)
+    {
+      sobol_states->clear();
+      delete sobol_states;
+    }
+    if (faure_states)
+    {
+      faure_states->clear();
+      delete faure_states;
+    }
+    if (random_states)
+    {
+      random_states->clear();
+      delete random_states;
+    }
+    if (states_)
+    {
+      for (auto i: *states_)
+      {
+        delete i;
+      }
+    }
+
   }
 
   bool solve(planning_interface::MotionPlanResponse& res) override;
@@ -277,6 +314,7 @@ public:
      @param count The number of runs to combine the paths of, in an attempt to generate better quality paths
   */
   bool solve(double timeout, unsigned int count);
+  bool solve(double timeout, unsigned int count, bool use_bolt_);
 
   /* @brief Benchmark the planning problem. Return true on succesful saving of benchmark results
      @param timeout The time to spend on solving
@@ -315,6 +353,8 @@ public:
   Eigen::Isometry3d stateToPose(ompl::base::State*);
   geometry_msgs::Point stateToPoint(const ompl::base::State* state);
   std::vector<geometry_msgs::Point> solutionPathWayPoints(const std::vector<ompl::base::State*>& states);
+  void visualizeGraph();
+
 
 
 protected:
@@ -338,9 +378,12 @@ protected:
 
   /// the OMPL planning context; this contains the problem definition and the planner used
   og::SimpleSetupPtr ompl_simple_setup_;
+  og::SimpleSetupPtr experience_simple_setup_;
+  otb::BoltPtr bolt_;
 
   ot::ThunderDBPtr experienceDB_;
   ob::PlannerPtr experience_planner_;
+  ompl::tools::ExperienceSetupPtr experience_setup_;
 
   const std::function<geometry_msgs::Point(const ompl::base::State*)> publish_state_fun_;
   std::vector<geometry_msgs::Point > *faure_states;
@@ -357,7 +400,6 @@ protected:
 
   mutable int sequence_number_;
   // Save the experience setup until the program ends so that the planner data is not lost
-  ot::ExperienceSetupPtr experience_setup_;
 
     /// the OMPL tool for benchmarking planners
   ot::Benchmark ompl_benchmark_;

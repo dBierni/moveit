@@ -58,6 +58,8 @@
 #include "ompl/base/objectives/MinimaxObjective.h"
 #include "ompl/base/objectives/StateCostIntegralObjective.h"
 #include "ompl/base/objectives/MaximizeMinClearanceObjective.h"
+//#include <moveit_ompl/ompl_rosparam.h>
+
 
 ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::string& name,
                                                                      const ModelBasedPlanningContextSpecification& spec)
@@ -65,6 +67,7 @@ ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::
   , spec_(spec)
   , complete_initial_robot_state_(spec.state_space_->getRobotModel())
   , ompl_simple_setup_(spec.ompl_simple_setup_)
+  , bolt_(spec.bolt_)
   , ompl_benchmark_(*ompl_simple_setup_)
   , ompl_parallel_plan_(ompl_simple_setup_->getProblemDefinition())
   , ptc_(nullptr)
@@ -87,17 +90,15 @@ ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::
   ROS_WARN_STREAM("setStateSamplerAllocator w Moiveit");
   ompl_simple_setup_->getStateSpace()->setStateSamplerAllocator(
       std::bind(&ModelBasedPlanningContext::allocPathConstrainedSampler, this, std::placeholders::_1));
-<<<<<<< HEAD
 //  experienceDB_ = std::make_shared<ompl::tools::ThunderDB>(ompl_simple_setup_->getStateSpace());
 //  experience_planner_ =  std::make_shared<og::ThunderRetrieveRepair>(ompl_simple_setup_->getSpaceInformation(), experienceDB_);
 //  ompl_simple_setup_->setExperiencePlanner<ot::ThunderDBPtr>(experienceDB_);
 
-  bolt_ = std::make_unique<otb::Bolt>(ompl_simple_setup_->getStateSpace());
-  experience_simple_setup_ = bolt_;
-=======
- // experienceDB_ = std::make_shared<ompl::tools::ThunderDB>(ompl_simple_setup_->getStateSpace());
+  //bolt_ = otb::BoltPtr(new otb::Bolt(ompl_simple_setup_->getStateSpace()));
+  //experience_simple_setup_ = bolt_;
+  //experienceDB_ = std::make_shared<ompl::tools::ThunderDB>(ompl_simple_setup_->getStateSpace());
   //experience_planner_ =  std::make_shared<og::ThunderRetrieveRepair>(ompl_simple_setup_->getSpaceInformation(), experienceDB_);
-  ompl_simple_setup_->setExperiencePlanner<ot::ThunderDBPtr>(experienceDB_);
+//  ompl_simple_setup_->setExperiencePlanner<ot::ThunderDBPtr>(experienceDB_);
 
 
   //  Vectors used to keep generated samples TODO(DB) hardcoded
@@ -133,7 +134,7 @@ ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::
 
  // publish_state_fun_ = std::bind(&ModelBasedPlanningContext::stateToPoint,this,std::placeholders::_1);
 
->>>>>>> quasi_random_sampling
+
 }
 
 void ompl_interface::ModelBasedPlanningContext::setProjectionEvaluator(const std::string& peval)
@@ -246,18 +247,18 @@ ompl_interface::ModelBasedPlanningContext::allocPathConstrainedSampler(const omp
   ROS_DEBUG_NAMED("model_based_planning_context", "%s: Allocating default state sampler for state space",
                   name_.c_str());
 
-  if (quasi_random_sampling_) // It only works,
-  {
-
-    if (states_iter == states_->end())
-      return spec_.state_space_->allocQuasiRandomStateSampler(nullptr, spec_.state_space_->getNextGenerator(),
-                                                              publish_state_fun_);
-    else
-      return spec_.state_space_->allocQuasiRandomStateSampler(*(states_iter)++, spec_.state_space_->getNextGenerator(),
-                                                              publish_state_fun_);
-
-
-  }
+//  if (quasi_random_sampling_) // It only works,
+//  {
+//
+//    if (states_iter == states_->end())
+//      return spec_.state_space_->allocQuasiRandomStateSampler(nullptr, spec_.state_space_->getNextGenerator(),
+//                                                              publish_state_fun_);
+//    else
+//      return spec_.state_space_->allocQuasiRandomStateSampler(*(states_iter)++, spec_.state_space_->getNextGenerator(),
+//                                                              publish_state_fun_);
+//
+//
+//  }
     return ss->allocDefaultStateSampler();
 }
 
@@ -268,7 +269,10 @@ void ompl_interface::ModelBasedPlanningContext::configure()
   spec_.state_space_->copyToOMPLState(ompl_start_state.get(), getCompleteInitialRobotState());
   ompl_simple_setup_->setStartState(ompl_start_state);
   ompl_simple_setup_->setStateValidityChecker(ob::StateValidityCheckerPtr(new StateValidityChecker(this)));
-  experience_simple_setup_->setStateValidityChecker(ob::StateValidityCheckerPtr(new StateValidityChecker(this)));
+  
+ // experience_simple_setup_->setStateValidityChecker(ob::StateValidityCheckerPtr(new StateValidityChecker(this)));
+  OMPL_WARN("model based planning context configure");
+  //experience_simple_setup_->setStartState(ompl_start_state);
 
   if (path_constraints_ && spec_.constraints_library_)
   {
@@ -315,9 +319,16 @@ void ompl_interface::ModelBasedPlanningContext::configure()
 //
 //      experienceDB_->load(filePath_);  // load from file
 //    }
-
     ompl_simple_setup_->setup();
-    experience_simple_setup_->setup();
+
+    if (!bolt_->load(1, true))
+    {
+      ROS_ERROR_STREAM( "Unable to load sparse graph from file");
+    }
+
+    visualizeGraph();
+
+   // experience_simple_setup_->setup();
 
   }
 }
@@ -349,7 +360,6 @@ void ompl_interface::ModelBasedPlanningContext::useConfig()
       );
     }
     // clang-format on
-
     // convert to string using no locale
     cfg["longest_valid_segment_fraction"] = moveit::core::toString(longest_valid_segment_fraction_final);
   }
@@ -432,6 +442,12 @@ void ompl_interface::ModelBasedPlanningContext::useConfig()
   ompl_simple_setup_->getSpaceInformation()->params().setParams(cfg, true);
   // call setup() again for possibly new param values
   ompl_simple_setup_->getSpaceInformation()->setup();
+  ob::RealVectorBounds boundss = ompl_simple_setup_->getStateSpace()->getBounds();
+
+  for (auto &i : boundss.high)
+    std::cout << "bounds: "<<i<<std::endl;
+//  moveit_ompl::loadOMPLParameters(bolt_);
+
 }
 
 void ompl_interface::ModelBasedPlanningContext::setPlanningVolume(const moveit_msgs::WorkspaceParameters& wparams)
@@ -669,7 +685,30 @@ void ompl_interface::ModelBasedPlanningContext::postSolve()
 
 bool ompl_interface::ModelBasedPlanningContext::solve(planning_interface::MotionPlanResponse& res)
 {
-  if (solve(request_.allowed_planning_time, request_.num_planning_attempts))
+  OMPL_WARN("solve 1");
+  bool use_bolt_ = true;
+  if(use_bolt_)
+  {
+    double ptime = getLastPlanTime();
+    if (solve(request_.allowed_planning_time, request_.num_planning_attempts, true))
+    {
+      simplifySolution(request_.allowed_planning_time - ptime);
+      ptime += getLastSimplifyTime();
+    }
+    interpolateSolution();
+
+    // fill the response
+    ROS_DEBUG_NAMED("model_based_planning_context", "%s: Returning successful solution with %lu states",
+                    getName().c_str(), getOMPLSimpleSetup()->getSolutionPath().getStateCount());
+
+    res.trajectory_.reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
+    getSolutionPath(*res.trajectory_);
+    res.planning_time_ = ptime;
+    return true;
+
+
+  }
+  else if (solve(request_.allowed_planning_time, request_.num_planning_attempts))
   {
     double ptime = getLastPlanTime();
     if (simplify_solutions_)
@@ -698,6 +737,7 @@ bool ompl_interface::ModelBasedPlanningContext::solve(planning_interface::Motion
 
 bool ompl_interface::ModelBasedPlanningContext::solve(planning_interface::MotionPlanDetailedResponse& res)
 {
+
   if (solve(request_.allowed_planning_time, request_.num_planning_attempts))
   {
     res.trajectory_.reserve(3);
@@ -744,10 +784,11 @@ bool ompl_interface::ModelBasedPlanningContext::solve(planning_interface::Motion
 
 bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned int count)
 {
+
   ROS_WARN("ModelBasedPlanningContext start");
-<<<<<<< HEAD
-  bolt_->getSparseGenerator();
-=======
+ // bolt_->getSparseGenerator()->createSPARS();
+  ROS_WARN("ModelBasedPlanningContext createSPARS");
+ // bolt_->saveIfChanged();
   // Sets iterator for first vector used only for visualization
   states_iter = states_->begin();
   // Each thread start with diffrent sampling method
@@ -764,7 +805,6 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
 
 
 
->>>>>>> quasi_random_sampling
   moveit::tools::Profiler::ScopedBlock sblock("PlanningContext:Solve");
   ompl::time::point start = ompl::time::now();
   preSolve();
@@ -774,7 +814,7 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
   {
     ROS_DEBUG_NAMED("model_based_planning_context", "%s: Solving the planning problem once...", name_.c_str());
     ob::PlannerTerminationCondition ptc =
-        ob::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
+            ob::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
     registerTerminationCondition(ptc);
     result = ompl_simple_setup_->solve(ptc) == ompl::base::PlannerStatus::EXACT_SOLUTION;
     last_plan_time_ = ompl_simple_setup_->getLastPlanComputationTime();
@@ -793,20 +833,10 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
           ompl_parallel_plan_.addPlannerAllocator(ompl_simple_setup_->getPlannerAllocator());
       else
         for (unsigned int i = 0; i < count; ++i)
-<<<<<<< HEAD
-        {
-          if (use_experience) {
-            ROS_WARN("use_experience ?");
-//            ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
-            use_experience = false;
-          }
-          else
-=======
->>>>>>> quasi_random_sampling
-            ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
+          ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
 
       ob::PlannerTerminationCondition ptc =
-          ob::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
+              ob::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
       registerTerminationCondition(ptc);
       result = ompl_parallel_plan_.solve(ptc, 1, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
       last_plan_time_ = ompl::time::seconds(ompl::time::now() - start);
@@ -815,7 +845,7 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
     else
     {
       ob::PlannerTerminationCondition ptc =
-          ob::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
+              ob::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
       registerTerminationCondition(ptc);
       int n = count / max_planning_threads_;
       result = true;
@@ -823,32 +853,13 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
       {
         ompl_parallel_plan_.clearPlanners();
         if (ompl_simple_setup_->getPlannerAllocator())
-<<<<<<< HEAD
-          for (unsigned int i = 0; i < max_planning_threads_; ++i) {
-            if (use_experience) {
-              ROS_WARN("use_experience ?");
-//              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
-              use_experience = false;
-            } else
-=======
           for (unsigned int i = 0; i < max_planning_threads_; ++i)
->>>>>>> quasi_random_sampling
-              ompl_parallel_plan_.addPlannerAllocator(ompl_simple_setup_->getPlannerAllocator());
+            ompl_parallel_plan_.addPlannerAllocator(ompl_simple_setup_->getPlannerAllocator());
 
         else
           for (unsigned int i = 0; i < max_planning_threads_; ++i)
-<<<<<<< HEAD
-            if (use_experience) {
-              ROS_WARN("use_experience ?");
-//              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
-              use_experience = false;
-            }
-            else
-              ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
-=======
             ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
 
->>>>>>> quasi_random_sampling
         bool r = ompl_parallel_plan_.solve(ptc, 1, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
         result = result && r;
       }
@@ -861,17 +872,7 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
             ompl_parallel_plan_.addPlannerAllocator(ompl_simple_setup_->getPlannerAllocator());
         else
           for (int i = 0; i < n; ++i)
-<<<<<<< HEAD
-            if (use_experience) {
-              ROS_WARN("use_experience ?");
-//              ompl_parallel_plan_.addPlanner(ompl_simple_setup_->getExperiencePlanner());
-              use_experience = false;
-            }
-            else
-              ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
-=======
             ompl_parallel_plan_.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(ompl_simple_setup_->getGoal()));
->>>>>>> quasi_random_sampling
         bool r = ompl_parallel_plan_.solve(ptc, 1, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
         result = result && r;
       }
@@ -883,13 +884,13 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
   postSolve();
   ROS_WARN("ModelBasedPlanningContext end");
   ROS_INFO_STREAM("Publishing Niederretier samples:"<<"(" << niederreiter_states->size() << "): " <<
-  (visuals_->publishSpheres(*niederreiter_states,rviz_visual_tools::RED,rviz_visual_tools::XLARGE) ? "True": "False"));
+                                                    (visuals_->publishSpheres(*niederreiter_states,rviz_visual_tools::RED,rviz_visual_tools::XLARGE) ? "True": "False"));
   ROS_INFO_STREAM("Publishing Sobol samples:"<<"(" << sobol_states->size() << "): " <<
-  (visuals_->publishSpheres(*sobol_states,rviz_visual_tools::GREEN,rviz_visual_tools::XLARGE) ? "True": "False"));
+                                             (visuals_->publishSpheres(*sobol_states,rviz_visual_tools::GREEN,rviz_visual_tools::XLARGE) ? "True": "False"));
   ROS_INFO_STREAM("Publishing Faure samples:"<<"(" << faure_states->size() << "): " <<
-  (visuals_->publishSpheres(*faure_states,rviz_visual_tools::BLUE,rviz_visual_tools::XLARGE) ? "True": "False"));
+                                             (visuals_->publishSpheres(*faure_states,rviz_visual_tools::BLUE,rviz_visual_tools::XLARGE) ? "True": "False"));
   ROS_INFO_STREAM("Publishing Random samples:"<<"(" << random_states->size() << "): " <<
-  (visuals_->publishSpheres(*random_states,rviz_visual_tools::CYAN,rviz_visual_tools::XLARGE) ? "True": "False"));
+                                              (visuals_->publishSpheres(*random_states,rviz_visual_tools::CYAN,rviz_visual_tools::XLARGE) ? "True": "False"));
 
   visuals_->publishLineStrip(solutionPathWayPoints(ompl_simple_setup_->getSolutionPath().getStates()), rviz_visual_tools::RED , rviz_visual_tools::LARGE);
 //  const ob::PlannerDataPtr planner_data( new ob::PlannerData( ompl_simple_setup_->getSpaceInformation() ) );
@@ -898,6 +899,52 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
   return result;
 }
 
+
+bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned int count, bool use_bolt_)
+{
+
+
+  moveit::tools::Profiler::ScopedBlock sblock("PlanningContext:Solve");
+  ompl::time::point start = ompl::time::now();
+  preSolve();
+  bool use_experience = true;
+  bool result = false;
+  double seconds = 600;
+  double total_duration_ = 600;
+
+  ob::PlannerTerminationCondition ptc =
+          ob::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
+
+  while(ptc)
+  {
+
+  }
+  // Benchmark runtime
+//  ros::Time start_time = ros::Time::now();
+//
+//
+//  // Attempt to solve the problem within x seconds of planning time
+//  ob::PlannerStatus solved = ompl_simple_setup_->solve(ptc);
+//
+//  // Benchmark runtime
+//  total_duration_ = (ros::Time::now() - start_time).toSec();
+//  unregisterTerminationCondition();
+//
+//  // Check for error
+//  if (!solved)
+//  {
+//    ROS_ERROR_STREAM_NAMED(name_, "No solution found");
+//    return false;
+//  } else ROS_INFO("Solution found in %f", total_duration_);
+
+//  postSolve();
+
+  //visuals_->publishLineStrip(solutionPathWayPoints(ompl_simple_setup_->getSolutionPath().getStates()), rviz_visual_tools::RED , rviz_visual_tools::LARGE);
+//  const ob::PlannerDataPtr planner_data( new ob::PlannerData( ompl_simple_setup_->getSpaceInformation() ) );
+//  ompl_simple_setup_->getPlannerData( *planner_data );
+//  visuals_->publishGraph(planner_data, rviz_visual_tools::ORANGE, 0.2, "tree");
+  return result;
+}
 void ompl_interface::ModelBasedPlanningContext::registerTerminationCondition(const ob::PlannerTerminationCondition& ptc)
 {
   std::unique_lock<std::mutex> slock(ptc_lock_);
@@ -935,7 +982,6 @@ geometry_msgs::Point ompl_interface::ModelBasedPlanningContext::stateToPoint(con
 //  const std::vector<std::string > & link_name = visuals_->getRobotModel()->getLinkModelNames();
 //  for (auto &e : link_name)
 //    ROS_WARN_STREAM(e);
-
   return visuals_->convertPoint(robot_visual_->getGlobalLinkTransform("tool0").translation());;
 }
 
@@ -954,6 +1000,35 @@ std::vector<geometry_msgs::Point> ompl_interface::ModelBasedPlanningContext::sol
 //  visuals_->publishRobotState(*visuals_->getSharedRobotState());
 
   return result;
+}
+void ompl_interface::ModelBasedPlanningContext::visualizeGraph()
+{
+    ros::Time start_time = ros::Time::now();
 
+  BOOST_FOREACH(const otb::SparseEdge edge, boost::edges(bolt_->getSparseGraph()->getGraph()))
+  {
+    otb::SparseVertex v1 = boost::source(edge, bolt_->getSparseGraph()->getGraph());
+    otb::SparseVertex v2 = boost::target(edge, bolt_->getSparseGraph()->getGraph());
+    visuals_->publishLine(stateToPoint(bolt_->getBoltPlanner()->vertexToState(v1)),
+            stateToPoint(bolt_->getBoltPlanner()->vertexToState(v2)));
+  }
+  ros::Time end = ros::Time::now() ;
+  double time = (end - start_time).toSec();
+
+  OMPL_WARN("CZas print %f", time);
+  visuals_->trigger();
+  visuals_->enableBatchPublishing(true);
 
 }
+//{
+//  std::vector<geometry_msgs::Point> result;
+//
+//
+//  for (auto state: states)
+//  {
+//    result.push_back(stateToPoint(state));
+//  }
+//
+//
+//  return result;
+//}
