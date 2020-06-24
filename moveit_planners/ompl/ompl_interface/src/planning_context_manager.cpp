@@ -75,7 +75,9 @@
 #include <moveit/ompl_interface/detail/state_validity_checker.h>
 
 #include <bolt_core/Bolt.h>
-#include <moveit_ompl/ompl_rosparam.h>
+//#include <moveit_ompl/ompl_rosparam.h>
+#include <moveit/ompl_interface/model_based_planning_context.h>
+#include <moveit/ompl_interface/bolt_multiple_graphs_context.h>
 
 using namespace std::placeholders;
 
@@ -287,38 +289,13 @@ ompl_interface::ModelBasedPlanningContextPtr ompl_interface::PlanningContextMana
     context_spec.constraint_sampler_manager_ = constraint_sampler_manager_;
     context_spec.state_space_ = factory->getNewStateSpace(space_spec);
 
-    // Choose the correct simple setup type to load
+    BoltMultipleGraphsContextPtr bolt_multi_context_ = std::make_shared<BoltMultipleGraphsContext>(context_spec.state_space_);
 //    context_spec.ompl_simple_setup_.reset(new ompl::geometric::SimpleSetup(context_spec.state_space_));
-    context_spec.bolt_ = otb::BoltPtr(new otb::Bolt(context_spec.state_space_));
-    context_spec.ompl_simple_setup_ = context_spec.bolt_;
-//    ob::StateValidityChecker* validity_checker_ = StateValidityCheckerPtr( new ob::StateValidityChecker(context));
-//    validity_checker_->setCheckingEnabled(collision_checking_enabled_);
-//    ompl::tools::bolt::Bolt &bolt_handle = static_cast<ompl::tools::bolt::Bolt &>(*context_spec.ompl_simple_setup_);
-//    context_spec.ompl_simple_setup_->setStateValidityChecker(ob::StateValidityCheckerPtr(new StateValidityChecker(
-//            reinterpret_cast<const ModelBasedPlanningContext *>(this))));
-    moveit_ompl::loadOMPLParameters(context_spec.bolt_);
-
-
-
-    std::string name_ = "planning_context_manager";
-    std::string file_path;
-    for (auto it = context_spec.bolt_->getGraphsInfo().begin(); it != context_spec.bolt_->getGraphsInfo().end(); it++)
+    context_spec.ompl_simple_setup_ = bolt_multi_context_->getBolt(); // std::dynamic_pointer_cast<otb::Bolt>(bolt_multi_context_) ;
+    if (!bolt_multi_context_->loadParameters())
     {
-//      if (!moveit_ompl::getFilePath(file_path, "bolt_" + context_spec.state_space_->getJointModelGroup()->getName() + "_database",
-//                                    "ros/ompl_storage"))
-//      {
-//        ROS_ERROR_STREAM_NAMED(name_, "Unable to find file path for experience framework");
-//      }
-
-      if (!moveit_ompl::getFilePath(file_path, it->name_,
-                                    "ros/ompl_storage"))
-      {
-        ROS_ERROR_STREAM_NAMED(name_, "Unable to find file path for experience framework");
-        context_spec.bolt_->getGraphsInfo().erase(it--);
-      }
-      file_path.clear();
+       ROS_ERROR_STREAM_NAMED("planning_context_manager", "Unable to load parameters from ros param server");
     }
-
 
 
     bool state_validity_cache = true;
