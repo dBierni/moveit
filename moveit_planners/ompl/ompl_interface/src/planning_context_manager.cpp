@@ -40,6 +40,7 @@
 #include <algorithm>
 #include <set>
 #include <utility>
+#include <memory>
 
 #include <ompl/geometric/planners/rrt/RRT.h>
 #include <ompl/geometric/planners/rrt/pRRT.h>
@@ -105,6 +106,7 @@ ompl_interface::PlanningContextManager::PlanningContextManager(robot_model::Robo
   cached_contexts_.reset(new CachedContexts());
   registerDefaultPlanners();
   registerDefaultStateSpaces();
+
 }
 
 ompl_interface::PlanningContextManager::~PlanningContextManager() = default;
@@ -278,6 +280,7 @@ ompl_interface::ModelBasedPlanningContextPtr ompl_interface::PlanningContextMana
         }
     }
   }
+  ROS_ERROR_STREAM_NAMED("planning_context_manager", "Unable to load parameters from ros param ser2ver");
 
   // Create a new planning context
   if (!context)
@@ -288,14 +291,18 @@ ompl_interface::ModelBasedPlanningContextPtr ompl_interface::PlanningContextMana
     context_spec.planner_selector_ = getPlannerSelector();
     context_spec.constraint_sampler_manager_ = constraint_sampler_manager_;
     context_spec.state_space_ = factory->getNewStateSpace(space_spec);
-
-    BoltMultipleGraphsContextPtr bolt_multi_context_ = std::make_shared<BoltMultipleGraphsContext>(context_spec.state_space_);
+//    bolt_multi_context_.reset(new BoltMultipleGraphsContext(context_spec.state_space_));
+    if(!bolt_multi_context_)
+      const_cast<std::shared_ptr<BoltMultipleGraphsContext>&>(bolt_multi_context_).reset(new BoltMultipleGraphsContext(context_spec.state_space_));
 //    context_spec.ompl_simple_setup_.reset(new ompl::geometric::SimpleSetup(context_spec.state_space_));
     context_spec.ompl_simple_setup_ = bolt_multi_context_->getBolt(); // std::dynamic_pointer_cast<otb::Bolt>(bolt_multi_context_) ;
+    context_spec.bolt_ = bolt_multi_context_->getBolt();
     if (!bolt_multi_context_->loadParameters())
     {
-       ROS_ERROR_STREAM_NAMED("planning_context_manager", "Unable to load parameters from ros param server");
+       ROS_ERROR_STREAM_NAMED("planning_context_manager", "Unable to load parameters from ros param server1");
     }
+
+    //bolt_multi_context_->startThreadMonitor();
 
 
     bool state_validity_cache = true;

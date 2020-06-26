@@ -325,7 +325,7 @@ void ompl_interface::ModelBasedPlanningContext::configure()
     {
       ROS_ERROR_STREAM( "Unable to load sparse graph from file");
     }
-
+//
     visualizeGraph();
 
    // experience_simple_setup_->setup();
@@ -444,9 +444,6 @@ void ompl_interface::ModelBasedPlanningContext::useConfig()
   ompl_simple_setup_->getSpaceInformation()->setup();
   ob::RealVectorBounds boundss = ompl_simple_setup_->getStateSpace()->getBounds();
 
-  for (auto &i : boundss.high)
-    std::cout << "bounds: "<<i<<std::endl;
-//  moveit_ompl::loadOMPLParameters(bolt_);
 
 }
 
@@ -990,7 +987,7 @@ std::vector<geometry_msgs::Point> ompl_interface::ModelBasedPlanningContext::sol
   std::vector<geometry_msgs::Point> result;
 //  og::PathGeometric& pg = ompl_simple_setup_->getSolutionPath();
 //  std::vector<ompl::base::State*> states = ompl_simple_setup_->getSolutionPath().getStates();
-
+  std::vector<otb::SparseVertex> vec;
   for (auto state: states)
   {
     result.push_back(stateToPoint(state));

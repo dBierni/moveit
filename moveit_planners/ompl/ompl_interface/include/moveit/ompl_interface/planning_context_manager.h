@@ -41,7 +41,7 @@
 #include <moveit/ompl_interface/parameterization/model_based_state_space_factory.h>
 #include <moveit/constraint_samplers/constraint_sampler_manager.h>
 #include <moveit/macros/class_forward.h>
-
+#include <moveit/ompl_interface/bolt_multiple_graphs_context.h>
 #include <vector>
 #include <string>
 #include <map>
@@ -168,6 +168,17 @@ public:
     return state_space_factories_;
   }
 
+  bool initializeBoltMultipleGraphs(ModelBasedStateSpacePtr state_space)
+  {
+    if(!bolt_multi_context_)
+      bolt_multi_context_.reset(new BoltMultipleGraphsContext(state_space));
+  }
+
+  bool startBoltMonitorThread()
+  {
+    bolt_multi_context_->startThreadMonitor();
+  }
+
   ConfiguredPlannerSelector getPlannerSelector() const;
 
 protected:
@@ -224,9 +235,12 @@ protected:
   /// needed)
   unsigned int minimum_waypoint_count_;
 
+  BoltMultipleGraphsContextPtr bolt_multi_context_{nullptr};
+
 private:
   MOVEIT_STRUCT_FORWARD(CachedContexts);
   CachedContextsPtr cached_contexts_;
+
 };
 }
 

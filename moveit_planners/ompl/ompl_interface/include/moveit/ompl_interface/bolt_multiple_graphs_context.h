@@ -27,13 +27,20 @@ OMPL_CLASS_FORWARD(BoltMultipleGraphsMonitor);
 class BoltMultipleGraphsMonitor //: public ompl::tools::bolt::Bolt
 {
 public:
-    BoltMultipleGraphsMonitor()
+    BoltMultipleGraphsMonitor(moveit::core::RobotModelConstPtr  robot_model)
     {
-
+      robot_state_ = std::make_shared<robot_state::RobotState>(robot_model);
     };
 
-
-    virtual bool startThreadMonitor() = 0;
+//    ~BoltMultipleGraphsMonitor()
+//    {
+//      stopThreadMonitor();
+//    };
+    void operator()()
+    {
+      ROS_WARN("Void operator() thread");
+    }
+  //  virtual bool startThreadMonitor() = 0;
 
     void monitor(std::future<void> futureObj, ompl::tools::bolt::BoltPtr bolt);
 
@@ -41,45 +48,58 @@ public:
 
     std::future<void> getExitSignalFuture()
     {
-      return exit_signal_.get_future();
+      std::future<void> future_obj_;
+      future_obj_ = exit_signal_.get_future();
+      return future_obj_;
     }
 
     void stopThreadMonitor()
     {
-      exit_signal_.set_value();
+      if(!monitor_th_->joinable())
+      {
+        exit_signal_.set_value();
+        monitor_th_->join();
+      }
+
     }
 
 protected:
+    std::promise<void> exit_signal_;
+    std::unique_ptr<std::thread> monitor_th_;
 
 private:
 
-    std::promise<void> exit_signal_;
+    robot_state::RobotStatePtr robot_state_;
 
     Eigen::Isometry3d pose_;
+
 };
 
 class BoltMultipleGraphsContext: public BoltMultipleGraphsMonitor
 {
 public:
-    BoltMultipleGraphsContext(ModelBasedStateSpacePtr state_space);
+       BoltMultipleGraphsContext(const ModelBasedStateSpacePtr state_space);
+
+//      ~BoltMultipleGraphsContext()
+//      {
+//        stopThreadMonitor();
+//      }
 
 //    virtual ~BoltMultipleGraphsContext() = default;
 
-    bool loadParameters();
+      bool loadParameters();
 
-    bool initializeGraphInfo();
+      bool initializeGraphInfo();
 
-   bool startThreadMonitor() override ;
+      bool startThreadMonitor();
+  //    void monitor(std::future<void> futureObj);
 
+      void allocBoltTaskGraphGenerator();
 
-//    void monitor(std::future<void> futureObj);
-
-    void allocBoltTaskGraphGenerator();
-
-    ompl::tools::bolt::BoltPtr getBolt()
-    {
-      return bolt_;
-    }
+      ompl::tools::bolt::BoltPtr getBolt()
+      {
+        return bolt_;
+      }
 
 protected:
 
@@ -87,6 +107,8 @@ private:
     ModelBasedStateSpacePtr state_space_;
 
     ompl::tools::bolt::BoltPtr bolt_;
+
+
 
 };
 

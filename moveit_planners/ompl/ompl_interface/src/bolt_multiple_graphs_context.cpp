@@ -7,9 +7,18 @@
 
 
 ompl_interface::BoltMultipleGraphsContext::BoltMultipleGraphsContext(ModelBasedStateSpacePtr state_space)
-: state_space_(state_space)//, ompl::tools::bolt::Bolt{state_space}
+: state_space_(state_space), BoltMultipleGraphsMonitor{state_space->getRobotModel()} //, ompl::tools::bolt::Bolt{state_space}
 {
   bolt_ = std::make_shared<ompl::tools::bolt::Bolt>(state_space_);
+//  graphs_monitor_ = std::make_shared<ompl_interface::BoltMultipleGraphsMonitor>(state_space_->getRobotModel());
+
+//  getMonitorThread()  = std::make_shared<std::thread>(&ompl_interface::BoltMultipleGraphsMonitor::monitor, this,
+//          std::move(getExitSignalFuture()), bolt_);
+//
+//   monitor_th_.reset(new std::thread(&static_cast<ompl_interface::BoltMultipleGraphsMonitor &>(*this)));
+
+  monitor_th_ = std::unique_ptr<std::thread>(new std::thread(&ompl_interface::BoltMultipleGraphsMonitor::monitor, this,
+          std::move(getExitSignalFuture()), bolt_));
 }
 
 
@@ -55,17 +64,14 @@ void ompl_interface::BoltMultipleGraphsContext::allocBoltTaskGraphGenerator()
   };
 }
 
-bool ompl_interface::BoltMultipleGraphsContext::startThreadMonitor()
-{
-//  std::future<void> future_obj_;
-  auto future_obj_ = getExitSignalFuture();
-  std::thread th(&ompl_interface::BoltMultipleGraphsMonitor::monitor, this, std::move(future_obj_), bolt_);
-}
 
 void ompl_interface::BoltMultipleGraphsMonitor::monitor(std::future<void> future, ompl::tools::bolt::BoltPtr bolt)
 {
+
   while (future.wait_for(std::chrono::milliseconds(1)) == std::future_status::timeout)
   {
+    ROS_WARN_STREAM("Nazwy linkow2");
+
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 }
