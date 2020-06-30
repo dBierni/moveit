@@ -16,6 +16,8 @@
 
 #include <thread>
 #include <future>
+#include <tf2_ros/transform_listener.h>
+
 
 namespace ompl_interface
 {
@@ -23,6 +25,30 @@ namespace ompl_interface
 
 OMPL_CLASS_FORWARD(BoltMultipleGraphsContext);
 OMPL_CLASS_FORWARD(BoltMultipleGraphsMonitor);
+OMPL_CLASS_FORWARD(BoltTaskGraphGenerator);
+
+class  BoltTaskGraphGenerator //: public ompl::tools::bolt::Bolt
+{
+public:
+//    BoltTaskGraphGenerator(const moveit::core::RobotModelConstPtr robot_model)
+    BoltTaskGraphGenerator(moveit::core::RobotState robot_state)
+//    : bolt_(bolt), robot_state_(robot_state)
+    {
+     robot_state_.reset(new moveit::core::RobotState(robot_state));
+    ROS_WARN("TUTAJ JESTEM>>>>???");
+    }
+
+    void operator()(ompl::tools::bolt::BoltPtr bolt, ompl::base::State *state)
+    {
+      ROS_WARN("Void operator() thread");
+    }
+
+protected:
+
+private:
+    moveit::core::RobotStatePtr robot_state_;
+
+};
 
 class BoltMultipleGraphsMonitor //: public ompl::tools::bolt::Bolt
 {
@@ -30,21 +56,26 @@ public:
     BoltMultipleGraphsMonitor(moveit::core::RobotModelConstPtr  robot_model)
     {
       robot_state_ = std::make_shared<robot_state::RobotState>(robot_model);
+      tf_buffer_.reset(new tf2_ros::Buffer(ros::Duration(5.0)));
+      tf_listener_.reset(new tf2_ros::TransformListener(*tf_buffer_));
+      ros::Duration(0.2).sleep();
+
+//      robot_state_.reset(new robot_state::RobotState(robot_model));
     };
 
 //    ~BoltMultipleGraphsMonitor()
 //    {
 //      stopThreadMonitor();
 //    };
-    void operator()()
-    {
-      ROS_WARN("Void operator() thread");
-    }
+//    void operator()()
+//    {
+//      ROS_WARN("Void operator() thread");
+//    }
   //  virtual bool startThreadMonitor() = 0;
 
     void monitor(std::future<void> futureObj, ompl::tools::bolt::BoltPtr bolt);
+    BoltTaskGraphGeneratorPtr allocTaskGraphGenerator(ompl::tools::bolt::BoltPtr bolt);
 
-    void allocBoltTaskGraphGenerator();
 
     std::future<void> getExitSignalFuture()
     {
@@ -70,7 +101,8 @@ protected:
 private:
 
     robot_state::RobotStatePtr robot_state_;
-
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
     Eigen::Isometry3d pose_;
 
 };
@@ -92,9 +124,8 @@ public:
       bool initializeGraphInfo();
 
       bool startThreadMonitor();
-  //    void monitor(std::future<void> futureObj);
 
-      void allocBoltTaskGraphGenerator();
+  //    void monitor(std::future<void> futureObj);
 
       ompl::tools::bolt::BoltPtr getBolt()
       {
@@ -111,8 +142,6 @@ private:
 
 
 };
-
-
 
 }
 

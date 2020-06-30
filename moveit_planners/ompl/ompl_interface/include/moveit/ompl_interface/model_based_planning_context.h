@@ -451,6 +451,8 @@ protected:
 
   bool quasi_random_sampling_;
 
+  bool use_bolt_;
+
 
 };
 }  // namespace ompl_interface

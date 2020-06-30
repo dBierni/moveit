@@ -122,6 +122,7 @@ ompl_interface::ModelBasedPlanningContext::ModelBasedPlanningContext(const std::
 //  visuals_->loadPlanningSceneMonitor();
   visuals_->loadMarkerPub(true);
   robot_visual_ = visuals_->getSharedRobotState();
+  use_bolt_ = false;
 //  visuals_->loadTrajectoryPub();
 // visuals_->loadRobotStatePub("display_robot_state");
 
@@ -321,12 +322,10 @@ void ompl_interface::ModelBasedPlanningContext::configure()
 //    }
     ompl_simple_setup_->setup();
 
-    if (!bolt_->load(1, true))
-    {
-      ROS_ERROR_STREAM( "Unable to load sparse graph from file");
-    }
+
 //
-    visualizeGraph();
+    if(use_bolt_)
+      visualizeGraph();
 
    // experience_simple_setup_->setup();
 
@@ -683,7 +682,6 @@ void ompl_interface::ModelBasedPlanningContext::postSolve()
 bool ompl_interface::ModelBasedPlanningContext::solve(planning_interface::MotionPlanResponse& res)
 {
   OMPL_WARN("solve 1");
-  bool use_bolt_ = true;
   if(use_bolt_)
   {
     double ptime = getLastPlanTime();
