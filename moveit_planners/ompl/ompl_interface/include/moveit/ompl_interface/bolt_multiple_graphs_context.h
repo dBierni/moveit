@@ -35,7 +35,6 @@ public:
 //    : bolt_(bolt), robot_state_(robot_state)
     {
      robot_state_.reset(new moveit::core::RobotState(robot_state));
-    ROS_WARN("TUTAJ JESTEM>>>>???");
     }
 
     void operator()(ompl::tools::bolt::BoltPtr bolt, ompl::base::State *state)
@@ -56,9 +55,10 @@ public:
     BoltMultipleGraphsMonitor(moveit::core::RobotModelConstPtr  robot_model)
     {
       robot_state_ = std::make_shared<robot_state::RobotState>(robot_model);
-      tf_buffer_.reset(new tf2_ros::Buffer(ros::Duration(5.0)));
-      tf_listener_.reset(new tf2_ros::TransformListener(*tf_buffer_));
-      ros::Duration(0.2).sleep();
+      parameters = false;
+//      tf_buffer_.reset(new tf2_ros::Buffer(ros::Duration(5.0)));
+//      tf_listener_.reset(new tf2_ros::TransformListener(*tf_buffer_));
+//      ros::Duration(0.2).sleep();
 
 //      robot_state_.reset(new robot_state::RobotState(robot_model));
     };
@@ -101,9 +101,10 @@ protected:
 private:
 
     robot_state::RobotStatePtr robot_state_;
-    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
-    std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
+//    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+//    std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
     Eigen::Isometry3d pose_;
+    bool parameters;
 
 };
 

@@ -12,16 +12,16 @@
 ompl_interface::BoltMultipleGraphsContext::BoltMultipleGraphsContext(ModelBasedStateSpacePtr state_space)
 : state_space_(state_space), BoltMultipleGraphsMonitor{state_space->getRobotModel()} //, ompl::tools::bolt::Bolt{state_space}
 {
-  bolt_ = std::make_shared<ompl::tools::bolt::Bolt>(state_space_);
+  bolt_.reset(new ompl::tools::bolt::Bolt(state_space_));
 //  graphs_monitor_ = std::make_shared<ompl_interface::BoltMultipleGraphsMonitor>(state_space_->getRobotModel());
 
 //  getMonitorThread()  = std::make_shared<std::thread>(&ompl_interface::BoltMultipleGraphsMonitor::monitor, this,
 //          std::move(getExitSignalFuture()), bolt_);
 //
 //   monitor_th_.reset(new std::thread(&static_cast<ompl_interface::BoltMultipleGraphsMonitor &>(*this)));
-
-  monitor_th_ = std::unique_ptr<std::thread>(new std::thread(&ompl_interface::BoltMultipleGraphsMonitor::monitor, this,
-          std::move(getExitSignalFuture()), bolt_));
+ // bolt_->load(1, true);
+//  monitor_th_ = std::unique_ptr<std::thread>(new std::thread(&ompl_interface::BoltMultipleGraphsMonitor::monitor, this,
+//          std::move(getExitSignalFuture()), bolt_));
 }
 
 
@@ -32,25 +32,31 @@ bool ompl_interface::BoltMultipleGraphsContext::loadParameters()
   std::string file_path;
   std::string name_ = "planning_context_manager";
 
-  for (auto it = bolt_->getGraphsInfo().begin(); it != bolt_->getGraphsInfo().end(); it++)
+
+  for (auto it = bolt_->getGraphsInfo()->begin(); it != bolt_->getGraphsInfo()->end(); ++it)
   {
+
     if (!moveit_ompl::getFilePath(file_path, it->name_,"ros/ompl_storage"))
     {
       ROS_ERROR_STREAM_NAMED(name_, "Unable to find file path for experience framework");
-     bolt_->getGraphsInfo().erase(it--);
-    }
+     bolt_->getGraphsInfo()->erase(it--);
+    }else
+      it->path_ = file_path;
+
     file_path.clear();
   }
-  if (bolt_->getGraphsInfo().size() == 0 )
+
+  if (bolt_->getGraphsInfo()->size() == 0 )
     return false;
 
- return true;
+
+  return true;
 
 }
 
 void ompl_interface::BoltMultipleGraphsMonitor::monitor(std::future<void> future, ompl::tools::bolt::BoltPtr bolt)
 {
-
+  //ros::Duration(5.0).sleep();
   std::vector<std::future<void>> futures;
   ompl::base::State *state = bolt->getSpaceInformation()->allocState();
   geometry_msgs::TransformStamped transformStamped;
@@ -70,28 +76,34 @@ void ompl_interface::BoltMultipleGraphsMonitor::monitor(std::future<void> future
   bool ik = robot_state_->setFromIK(joint_model_group, pose_, 10, 0.1);
   ROS_WARN_STREAM("IK: "<< ik);
 //  robot_state_->copyJointGroupPositions(joint_model_group, joint_values);
-  robot_state_->copyJointGroupPositions(joint_model_group, state->as<ModelBasedStateSpace::StateType>()->values);
-
-
-
-
-//  while (future.wait_for(std::chrono::milliseconds(1)) == std::future_status::timeout)
-//  {
-//    bool ik = robot_state_->setFromIK(joint_model_group, pose_, 10, 0.1);
-//    ROS_WARN_STREAM("IK: "<< ik);
-//    ROS_INFO_STREAM("Pose:  x:" << pose_.translation().x() <<"| y: " <<pose_.translation().y() << "| z: "<<pose_.translation().z());
-//    ROS_INFO_STREAM("Pose:  qx:" <<q.x() <<"| qy: " <<q.y() << "| qz: "<<q.z()
-//                            << "| qw: "<<q.w());
-//    robot_state_->copyJointGroupPositions(joint_model_group, joint_values);
-//    ROS_ERROR("------------------------");
-//    for (std::size_t i = 0; i < joint_values.size(); ++i)
-//    {
+  //robot_state_->copyJointGroupPositions(joint_model_group, state->as<ModelBasedStateSpace::StateType>()->values);
+//  ompl::tools::bolt::SparseGraphPtr sp1 = bolt->getSparseGraph(0);
+//  ROS_WARN_STREAM("Rozmiar: ??");
 //
-//      ROS_INFO("Joint  %f ", joint_values[i]);
-//    }
+//  std::vector<ompl::tools::bolt::SparseEdge> edg = sp1->getNeighborsEdges(state, 7.5, 1);
 //
-//    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-//  }
+//  ROS_WARN_STREAM("Rozmiar: " << edg.size());
+
+
+
+
+  while (future.wait_for(std::chrono::milliseconds(1)) == std::future_status::timeout)
+  {
+    bool ik = robot_state_->setFromIK(joint_model_group, pose_, 10, 0.1);
+    ROS_WARN_STREAM("IK: "<< ik);
+    ROS_INFO_STREAM("Pose:  x:" << pose_.translation().x() <<"| y: " <<pose_.translation().y() << "| z: "<<pose_.translation().z());
+    ROS_INFO_STREAM("Pose:  qx:" <<q.x() <<"| qy: " <<q.y() << "| qz: "<<q.z()
+                            << "| qw: "<<q.w());
+    robot_state_->copyJointGroupPositions(joint_model_group, joint_values);
+    ROS_ERROR("------------------------");
+    for (std::size_t i = 0; i < joint_values.size(); ++i)
+    {
+
+      ROS_INFO("Joint  %f ", joint_values[i]);
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  }
 }
 
 //ompl_interface::BoltTaskGraphGeneratorPtr ompl_interface::BoltMultipleGraphsMonitor::allocTaskGraphGenerator(ompl::tools::bolt::BoltPtr bolt)
