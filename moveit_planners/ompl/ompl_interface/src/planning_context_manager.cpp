@@ -296,12 +296,11 @@ ompl_interface::ModelBasedPlanningContextPtr ompl_interface::PlanningContextMana
     context_spec.ompl_simple_setup_.reset(new ompl::geometric::SimpleSetup(context_spec.state_space_));
 //    context_spec.ompl_simple_setup_ = bolt_multi_context_->getBolt(); // std::dynamic_pointer_cast<otb::Bolt>(bolt_multi_context_) ;
     context_spec.bolt_ = bolt_multi_context_->getBolt();
-    ROS_WARN("TU?321??");
-    if (!bolt_multi_context_->loadParameters())
-    {
-       ROS_ERROR_STREAM_NAMED("planning_context_manager", "Unable to load parameters from ros param server1");
-    }
-    ROS_WARN("TU?123??");
+//    if (!bolt_multi_context_->loadParameters())
+//    {
+//       ROS_ERROR_STREAM_NAMED("planning_context_manager", "Unable to load parameters from ros param server1");
+//    }else
+//      bolt_multi_context_->getBolt()->load(1, true);
 
     //else
 //      bolt_multi_context_->getBolt()->load(1, true);

@@ -19,7 +19,8 @@ ompl_interface::BoltMultipleGraphsContext::BoltMultipleGraphsContext(ModelBasedS
 //          std::move(getExitSignalFuture()), bolt_);
 //
 //   monitor_th_.reset(new std::thread(&static_cast<ompl_interface::BoltMultipleGraphsMonitor &>(*this)));
- // bolt_->load(1, true);
+  loadParameters();
+  bolt_->load(1, true);
 //  monitor_th_ = std::unique_ptr<std::thread>(new std::thread(&ompl_interface::BoltMultipleGraphsMonitor::monitor, this,
 //          std::move(getExitSignalFuture()), bolt_));
 }
@@ -33,22 +34,21 @@ bool ompl_interface::BoltMultipleGraphsContext::loadParameters()
   std::string name_ = "planning_context_manager";
 
 
-  for (auto it = bolt_->getGraphsInfo()->begin(); it != bolt_->getGraphsInfo()->end(); ++it)
-  {
+//  for (auto it = bolt_->getGraphsInfo()->begin(); it != bolt_->getGraphsInfo()->end(); it++)
+//  {
+//
+//    if (!moveit_ompl::getFilePath(file_path, it->name_,"ros/ompl_storage"))
+//    {
+//      ROS_ERROR_STREAM_NAMED(name_, "Unable to find file path for experience framework");
+//     bolt_->getGraphsInfo()->erase(it--);
+//    }else
+//      it->path_ = file_path;
+//
+//    file_path.clear();
+//  }
 
-    if (!moveit_ompl::getFilePath(file_path, it->name_,"ros/ompl_storage"))
-    {
-      ROS_ERROR_STREAM_NAMED(name_, "Unable to find file path for experience framework");
-     bolt_->getGraphsInfo()->erase(it--);
-    }else
-      it->path_ = file_path;
-
-    file_path.clear();
-  }
-
-  if (bolt_->getGraphsInfo()->size() == 0 )
+  if (bolt_->getSparseGraphsSize() == 0 )
     return false;
-
 
   return true;
 
