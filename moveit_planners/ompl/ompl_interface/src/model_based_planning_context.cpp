@@ -682,6 +682,7 @@ void ompl_interface::ModelBasedPlanningContext::postSolve()
 bool ompl_interface::ModelBasedPlanningContext::solve(planning_interface::MotionPlanResponse& res)
 {
   OMPL_WARN("solve 1");
+  return false;
   if(use_bolt_)
   {
     double ptime = getLastPlanTime();

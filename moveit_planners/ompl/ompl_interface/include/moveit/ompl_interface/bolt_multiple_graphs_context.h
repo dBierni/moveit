@@ -11,9 +11,13 @@
 #include <bolt_core/SparseCriteria.h>
 #include <bolt_core/SparseMirror.h>
 
-//Moveit
+//Moveit/ROS
 #include <moveit/ompl_interface/model_based_planning_context.h>
+#include <rviz_visual_tools/rviz_visual_tools.h>
+#include <moveit_visual_tools/moveit_visual_tools.h>
+#include <tf2_ros/transform_listener.h>
 
+// C++
 #include <thread>
 #include <future>
 #include <tf2_ros/transform_listener.h>
@@ -52,30 +56,20 @@ private:
 class BoltMultipleGraphsMonitor //: public ompl::tools::bolt::Bolt
 {
 public:
-    BoltMultipleGraphsMonitor(moveit::core::RobotModelConstPtr  robot_model)
-    {
-      robot_state_ = std::make_shared<robot_state::RobotState>(robot_model);
-      parameters = false;
-//      tf_buffer_.reset(new tf2_ros::Buffer(ros::Duration(5.0)));
-//      tf_listener_.reset(new tf2_ros::TransformListener(*tf_buffer_));
-//      ros::Duration(0.2).sleep();
+    BoltMultipleGraphsMonitor(moveit::core::RobotModelConstPtr  robot_model);
 
-//      robot_state_.reset(new robot_state::RobotState(robot_model));
-    };
+    bool visualizeGraph(size_t index);
+    bool visualizeGraph(ompl::tools::bolt::SparseAdjList graph);
+    geometry_msgs::Point stateToPoint(const ompl::base::State* state);
 
-//    ~BoltMultipleGraphsMonitor()
-//    {
-//      stopThreadMonitor();
-//    };
-//    void operator()()
-//    {
-//      ROS_WARN("Void operator() thread");
-//    }
-  //  virtual bool startThreadMonitor() = 0;
 
-    void monitor(std::future<void> futureObj, ompl::tools::bolt::BoltPtr bolt);
+    void monitor(std::future<void> futureObj);
     BoltTaskGraphGeneratorPtr allocTaskGraphGenerator(ompl::tools::bolt::BoltPtr bolt);
-
+    bool setMonitorBolt(ompl::tools::bolt::BoltPtr bolt)
+    {
+      bolt_ = bolt;
+      return true;
+    }
 
     std::future<void> getExitSignalFuture()
     {
@@ -86,6 +80,7 @@ public:
 
     void stopThreadMonitor()
     {
+      ROS_ERROR_STREAM("stopThreadMonitor");
       if(!monitor_th_->joinable())
       {
         exit_signal_.set_value();
@@ -101,22 +96,25 @@ protected:
 private:
 
     robot_state::RobotStatePtr robot_state_;
+    ompl::tools::bolt::BoltPtr bolt_;
 //    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 //    std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
     Eigen::Isometry3d pose_;
     bool parameters;
+    moveit_visual_tools::MoveItVisualToolsPtr visuals_;
 
-};
+
+    };
 
 class BoltMultipleGraphsContext: public BoltMultipleGraphsMonitor
 {
 public:
        BoltMultipleGraphsContext(const ModelBasedStateSpacePtr state_space);
 
-//      ~BoltMultipleGraphsContext()
-//      {
-//        stopThreadMonitor();
-//      }
+      ~BoltMultipleGraphsContext()
+      {
+        stopThreadMonitor();
+      }
 
 //    virtual ~BoltMultipleGraphsContext() = default;
 
@@ -126,7 +124,9 @@ public:
 
       bool startThreadMonitor();
 
-  //    void monitor(std::future<void> futureObj);
+
+
+        //    void monitor(std::future<void> futureObj);
 
       ompl::tools::bolt::BoltPtr getBolt()
       {
