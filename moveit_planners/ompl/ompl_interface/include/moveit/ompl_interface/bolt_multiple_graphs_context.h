@@ -44,9 +44,8 @@ public:
 //    geometry_msgs::Point stateToPoint(const ompl::base::State *state);
     Eigen::Isometry3d stateToPoint(const ompl::base::State *state);
     bool visualizeGraph(std::size_t color_id);
-    std::vector<double> offsetVec(ompl::base::State *from, ompl::base::State *to,
-                                  const robot_state::JointModelGroup* joint_model_group,
-                                  const ModelBasedStateSpacePtr  state_space);
+    std::vector<double> getOffsetForState(ompl::base::State *from, const robot_state::JointModelGroup* joint_model_group,
+                                          const ModelBasedStateSpacePtr  state_space, const Eigen::Isometry3d & current_pose);
 
 protected:
 
