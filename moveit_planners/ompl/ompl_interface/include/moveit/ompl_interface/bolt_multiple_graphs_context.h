@@ -34,29 +34,37 @@ OMPL_CLASS_FORWARD(BoltTaskGraphGenerator);
 class  BoltTaskGraphGenerator //: public ompl::tools::bolt::Bolt
 {
 public:
-//    BoltTaskGraphGenerator(const moveit::core::RobotModelConstPtr robot_model)
-    BoltTaskGraphGenerator(moveit::core::RobotState robot_state)
-//    : bolt_(bolt), robot_state_(robot_state)
-    {
-     robot_state_.reset(new moveit::core::RobotState(robot_state));
-    }
-
-    void operator()(ompl::tools::bolt::BoltPtr bolt, ompl::base::State *state)
-    {
-      ROS_WARN("Void operator() thread");
-    }
+    BoltTaskGraphGenerator(moveit::core::RobotState robot_state, std::pair<Eigen::Isometry3d,
+            ompl::tools::bolt::SparseGraphPtr> *graph_full, const std::string &group_name, double nn_radius, size_t index);
+    void operator()(const Eigen::Isometry3d &pose,const ModelBasedStateSpacePtr  state_space);
+    Eigen::Isometry3d getSearchPose(const Eigen::Isometry3d &pose);
+    ompl::base::State * poseToModelSpaceState(const Eigen::Isometry3d &pose,
+                                              const robot_state::JointModelGroup* joint_model_group,
+                                              ompl::base::State *state);
+//    geometry_msgs::Point stateToPoint(const ompl::base::State *state);
+    Eigen::Isometry3d stateToPoint(const ompl::base::State *state);
+    bool visualizeGraph(std::size_t color_id);
+    std::vector<double> offsetVec(ompl::base::State *from, ompl::base::State *to,
+                                  const robot_state::JointModelGroup* joint_model_group,
+                                  const ModelBasedStateSpacePtr  state_space);
 
 protected:
 
 private:
+
+    moveit_visual_tools::MoveItVisualToolsPtr visuals_;
     moveit::core::RobotStatePtr robot_state_;
+    std::string joint_model_group_name_;
+    std::unique_ptr<std::pair<Eigen::Isometry3d, ompl::tools::bolt::SparseGraphPtr>> graph_full_;
+    double nn_radius_;
+    const ModelBasedStateSpacePtr  state_space;
 
 };
 
 class BoltMultipleGraphsMonitor //: public ompl::tools::bolt::Bolt
 {
 public:
-    BoltMultipleGraphsMonitor(moveit::core::RobotModelConstPtr  robot_model);
+    BoltMultipleGraphsMonitor(moveit::core::RobotModelConstPtr  robot_model, const ModelBasedStateSpacePtr state_space);
 
     bool visualizeGraph(size_t index);
     bool visualizeGraph(ompl::tools::bolt::SparseAdjList graph);
@@ -100,7 +108,10 @@ private:
 //    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 //    std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
     Eigen::Isometry3d pose_;
+    std::string joint_model_group_name_ = "arm_UR";
     bool parameters;
+    ModelBasedStateSpacePtr state_space_;
+
     moveit_visual_tools::MoveItVisualToolsPtr visuals_;
 
 
