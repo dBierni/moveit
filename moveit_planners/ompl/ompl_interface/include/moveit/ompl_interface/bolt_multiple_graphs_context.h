@@ -38,8 +38,7 @@ public:
             ompl::tools::bolt::SparseGraphPtr> *graph_full, const std::string &group_name, double nn_radius, size_t index);
     void operator()(const Eigen::Isometry3d &pose,const ModelBasedStateSpacePtr  state_space);
     Eigen::Isometry3d getSearchPose(const Eigen::Isometry3d &pose);
-    ompl::base::State * poseToModelSpaceState(const Eigen::Isometry3d &pose,
-                                              const robot_state::JointModelGroup* joint_model_group,
+    bool poseToModelSpaceState(const Eigen::Isometry3d &pose, const robot_state::JointModelGroup* joint_model_group,
                                               ompl::base::State *state);
 //    geometry_msgs::Point stateToPoint(const ompl::base::State *state);
     Eigen::Isometry3d stateToPoint(const ompl::base::State *state);
