@@ -208,6 +208,8 @@ bool DynamicsSolver::getTorques(const std::vector<double>& joint_angles, const s
   for (unsigned int i = 0; i < num_joints_; ++i)
     torques[i] = kdl_torques(i);
 
+
+
   return true;
 }
 

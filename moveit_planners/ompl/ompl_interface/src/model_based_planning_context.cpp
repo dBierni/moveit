@@ -682,6 +682,9 @@ void ompl_interface::ModelBasedPlanningContext::postSolve()
 bool ompl_interface::ModelBasedPlanningContext::solve(planning_interface::MotionPlanResponse& res)
 {
   OMPL_WARN("solve 1");
+//  bolt_->setFilePath("/home/db/ros/ompl_storage/bolt_arm_UR_husky");
+//  bolt_->getSparseGenerator()->createSPARS();
+//  bolt_->saveIfChanged();
   return false;
   if(use_bolt_)
   {
