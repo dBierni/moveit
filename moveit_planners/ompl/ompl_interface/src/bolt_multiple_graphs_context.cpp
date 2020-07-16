@@ -57,7 +57,7 @@ void ompl_interface::BoltMultipleGraphsMonitor::monitor(std::future<void> future
 {
   ros::Duration(5.0).sleep();
   std::vector<std::future<void>> futures;
-bool diff  = true;
+  bool diff  = true;
   while (future.wait_for(std::chrono::milliseconds(1)) == std::future_status::timeout)
   {
 
@@ -66,15 +66,19 @@ bool diff  = true;
     ROS_INFO_STREAM("Pose robot:  x:" << pose_.translation().x() <<"| y: " <<pose_.translation().y() << "| z: "<<pose_.translation().z());
     if (diff)
     {
+      const double &nn_radius = (bolt_->getSpaceInformation()->getMaximumExtent());
       for(size_t i =0; i < bolt_->getSparseGraphsSize(); i++)
       {
-        ROS_WARN_STREAM("THREAD: " << i << " SPARSE GRAPHS: " <<  bolt_->getSparseGraphsSize());
+        ompl::base::State *state = state_space_->allocState();
+        ROS_WARN_STREAM("THREAD: " << i << " SPARSE GRAPHS: " <<  bolt_->getSparseGraphsSize() << " addr: " << state);
         futures.push_back(std::async(BoltTaskGraphGenerator(*robot_state_, &bolt_->getSparseGraphFull(i),
-                                                            joint_model_group_name_, 12, 1),pose_, state_space_));
+                                                            joint_model_group_name_, pose_, i),nn_radius, state_space_,
+                                                                    bolt_->getTaskGraph(), std::move(state)));
       }
-
       diff = false;
     }
+
+
     // futures.push_back(std::async(*BoltTaskGraphGeneratorPtr(new BoltTaskGraphGenerator(*robot_state_)),bolt,state));
 
 //    bool ik = robot_state_->setFromIK(joint_model_group, pose_, 10, 0.1);
@@ -142,171 +146,182 @@ bool diff  = true;
 
 
 ompl_interface::BoltTaskGraphGenerator::BoltTaskGraphGenerator(moveit::core::RobotState robot_state ,std::pair<Eigen::Isometry3d,
-        ompl::tools::bolt::SparseGraphPtr> *graph_full, const std::string &group_name, const double nn_radius, size_t index)
+        ompl::tools::bolt::SparseGraphPtr> *graph_full, const std::string &group_name, const Eigen::Isometry3d &current_pose, size_t index)
+        : current_pose_(current_pose),
+          joint_model_group_name_(group_name),
+          index_(index)
+
 {
   robot_state_.reset(new moveit::core::RobotState(robot_state));
-  joint_model_group_name_ = group_name;
-  nn_radius_ = nn_radius;
   graph_full_.reset(graph_full);
   visuals_.reset(new moveit_visual_tools::MoveItVisualTools("world", "/moveit_visual_tool/graph/"+ std::to_string(index)));
   visuals_->loadMarkerPub(true);
 
 }
 
-void ompl_interface::BoltTaskGraphGenerator::operator()(const Eigen::Isometry3d &current_pose, const ModelBasedStateSpacePtr state_space)
+void ompl_interface::BoltTaskGraphGenerator::operator()(const double nn_radius, const ModelBasedStateSpacePtr state_space,
+        const ompl::tools::bolt::TaskGraphPtr task_graph, ompl::base::State *state)
 {
   ROS_WARN("Void operator() thread");
-  ompl::base::State *state = state_space->allocState();
-  std::vector<double> offset_v1, offset_v2, v1_vec, v2_vec;
+
+ // auto *diff_state = state_space->allocState();
   ompl::base::State *state_v1{nullptr}, *state_v2{nullptr};
+  bool v1_new{false}, v2_new{false};
   ompl::tools::bolt::SparseAdjList graph;
+  std::vector<ompl::tools::bolt::SparseVertex> vertex_to_delete;
   ROS_INFO_STREAM("Pose graph:  x:" << graph_full_->first.translation().x() <<"| y: " <<graph_full_->first.translation().y() << "| z: "<<graph_full_->first.translation().z());
 
   const robot_state::JointModelGroup* joint_model_group = robot_state_->getJointModelGroup(joint_model_group_name_);
-  const Eigen::Isometry3d  & state_pose = getSearchPose(current_pose);
-  bool ik = poseToModelSpaceState(state_pose, joint_model_group, state);
-  bool diff = false;
-  if (ik)
-  {
-    robot_state_->copyJointGroupPositions(joint_model_group, state->as<ModelBasedStateSpace::StateType>()->values);
-    bool nn = (graph_full_->second->getNeighborGraph(state,nn_radius_, graph));
+  const Eigen::Isometry3d  & state_pose = getSearchPose(current_pose_);
+  ROS_INFO_STREAM("Search pose:  x:" << state_pose.translation().x() <<"| y: " << state_pose.translation().y() << "| z: "<<state_pose.translation().z());
 
-int test = 0;
-//    bool vis = visualizeGraph(0);
+  bool diff_ik =true; // poseToModelSpaceState(current_pose_, joint_model_group, diff_state, 0.1);
+  bool ik = poseToModelSpaceState(state_pose, joint_model_group, state, 0.1);
+
+  if (!ik || !diff_ik)
+    ROS_WARN_STREAM("Can not obtain pose. Inverse kinematic for nearest nighbors  failed");
+
+  if (ik && diff_ik)
+  {
+    bool vis = visualizeGraph(0, graph_full_->second->getGraph());
+    nn_radius_ = (nn_radius / 2.0) ;//- std::min(state_space->distance(state, diff_state), (nn_radius / 4));
+  //  ROS_INFO_STREAM("Distance:" << state_space->distance(diff_state, state) << " Radius: " << nn_radius_ );
+
+    robot_state_->copyJointGroupPositions(joint_model_group, state->as<ModelBasedStateSpace::StateType>()->values);
+    bool nn = (graph_full_->second->getNeighborGraph(state,nn_radius_ , graph));
     ros::Time start_time = ros::Time::now();
 
-
     std::vector<double> test_v1= {0,0,0,0,0,0};
-  //  std::vector<double> test_v1= {-1.02441,-2.94412,-1.51998,-0.624122,-2.07187,-0.724983};
-    std::vector<double> test_v2= {0.743084,-1.00789,-1.76727,-0.393337,-2.33229,0.761168};
-   // std::vector<double> test_v2= {-0.894,-2.46634,-1.99104,0.338231,2.847,3.06293};
+//    std::vector<double> test_v2= {0.743084,-1.00789,-1.76727,-0.393337,-2.33229,0.761168};
+    std::vector<double> test_v2= {3.14,0,0,0,0,0};
 
-BOOST_FOREACH(const ompl::tools::bolt::SparseEdge & edge, boost::edges(graph))
+    BOOST_FOREACH(const ompl::tools::bolt::SparseEdge & edge, boost::edges(graph))
       {
-            otb::SparseVertex v1 = boost::source(edge, graph);
-            otb::SparseVertex v2 = boost::target(edge,graph);
-//            ROS_WARN_STREAM("Vertex 1: " << v1 << "Vertex 2: "<< v2);
+          otb::SparseVertex v1 = boost::source(edge, graph);
+          otb::SparseVertex v2 = boost::target(edge,graph);
 
-            /****TEST*/
-//               state_space->copyToReals(test_v1,graph[v1].state_);
-//               state_space->copyToReals(test_v2,graph[v2].state_);
-                  state_space->copyFromReals(graph[v1].state_,test_v1);
-                  state_space->copyFromReals(graph[v2].state_,test_v2);
-             /*                                                              */
-           //   ROS_WARN_STREAM("----------------------------------------");
-           // if(!diff)
-//            if(state_v1 != graph[v1].state_)
-//            {
-//              ROS_INFO_STREAM("Diff state v1: " << graph[v1].state_ <<"  /" << state_v1 );
-              offset_v1 = getOffsetForState(graph[v1].state_, joint_model_group, state_space, current_pose);
-           //   state_v1 = graph[v1].state_;
-//              diff = !diff;
-//            }
-//            ROS_ERROR_STREAM("------------" );
-//            if(state_v2 != graph[v2].state_)
-//            {
-             // ROS_INFO_STREAM("Diff state v2: "  << graph[v2].state_ <<"  /" << state_v2 );
-              offset_v2 = getOffsetForState(graph[v2].state_, joint_model_group, state_space, current_pose);
-             // state_v2 = graph[v2].state_;
-//            }
-
-              if(offset_v1.size() > 0)
-              {
-                v1_vec.resize(offset_v1.size());
-                v2_vec.resize(offset_v2.size());
-//
-                state_space->copyToReals(v1_vec,graph[v1].state_);
-                state_space->copyToReals(v2_vec,graph[v2].state_);
-//              visuals_->enableBatchPublishing(true);
-//
-//              visuals_->publishLine(stateToPoint(graph[v1].state_),stateToPoint(graph[v2].state_),
-//                                    visuals_->getColorWithID(0), rviz_visual_tools::XXLARGE);
-//              visuals_->enableBatchPublishing(true);
-//////
-              for(std::size_t i=0; i < v1_vec.size();i++)
-              {
-//                ROS_WARN_STREAM("Before V1 vec: "<< v1_vec[i] << "V2 vec: " << v2_vec[i]);
-
-                v1_vec[i]  = v1_vec[i]  - offset_v1[i]  ;
-                v2_vec[i]  = v2_vec[i]  - offset_v2[i]  ;
-              }
-//                std::transform (v1_vec.begin(), v1_vec.end(), offset_v1.begin(), v1_vec.begin(), std::minus<double>());
-//                std::transform (v2_vec.begin(), v2_vec.end(), offset_v1.begin(), v2_vec.begin(), std::minus<double>());
-
-//              for(std::size_t i=0; i < v1_vec.size();i++)
-//              {
-//                ROS_INFO_STREAM("new: " << v1_vec[i] );
-//              }
-                state_space->copyFromReals(graph[v1].state_,v1_vec);
-                state_space->copyFromReals(graph[v2].state_,v2_vec);
-//                ROS_INFO_STREAM("Diff state v1 2: " << graph[v1].state_ <<"  /" << state_v1 );
-//                offset_v1 = getOffsetForState(graph[v1].state_, joint_model_group, state_space, current_pose);
-
-                Eigen::Isometry3d pose2 = stateToPoint(graph[v1].state_);
-//                ROS_INFO_STREAM("new pose 1:  x:" << pose2.translation().x() <<"| y: " <<pose2.translation().y() << "| z: "<<pose2.translation().z());
-////
-                Eigen::Isometry3d pose3 = stateToPoint(graph[v2].state_);
-//                ROS_WARN_STREAM("new pose 2:  x:" << pose3.translation().x() <<"| y: " <<pose3.translation().y() << "| z: "<<pose3.translation().z());
-////
-//              visuals_->publishLine(stateToPoint(graph[v1].state_),stateToPoint(graph[v2].state_),
-//                                    visuals_->getColorWithID(2), rviz_visual_tools::XXLARGE);
-//              visuals_->enableBatchPublishing(true);
-//
-//              visuals_->trigger();
-//                ROS_WARN_STREAM("----------------------------------------");
-//
-//                test++;
-//                if(test == 2)
-              }
-        break;
-
+        if(state_v1 != graph[v1].state_)
+          {
+            v1_new = OffsetState(graph[v1].state_, joint_model_group);
+            state_v1 = graph[v1].state_;}
+          if(state_v2 != graph[v2].state_ && v1_new)
+          {
+            v2_new = OffsetState(graph[v2].state_, joint_model_group);
+            state_v2 = graph[v2].state_;
           }
+
+          if(!v2_new || !v1_new)
+            continue;
+
+        // If program reach here, it means, that robot can reach both v1 and v2.
+
+            //  ROS_ERROR_STREAM("DIST: " << state_space->distance(state,state_v1));
+//              ROS_ERROR_STREAM("DIST2: " << state_space->distance(state,state_v2));
+
+              visuals_->enableBatchPublishing(true);
+
+              visuals_->publishLine(stateToPoint(state_v1), stateToPoint(state_v2),
+                                    visuals_->getColorWithID(2), rviz_visual_tools::LARGE);
+
+              visuals_->enableBatchPublishing(true);
+              visuals_->trigger();
+              task_graph->addEdge(edge, graph, 1);
+
+
+      }
     ros::Time end = ros::Time::now() ;
     double time = (end - start_time).toSec();
-    state_space->freeState(state);
-    ROS_WARN_STREAM("czas: " << time);
-  }
+    ROS_WARN_STREAM("Graph " << index_ <<" time: " << time <<"s." <<" Could not obtain " << vertex_to_delete.size()
+    <<" vertices " );
+  //  state_space->freeState(state);
 
+//    for(auto it = vertex_to_delete.begin(); it != vertex_to_delete.end(); it++)
+//    {
+//  //    state_space->freeState(graph[*it].state_);
+//      boost::remove_vertex(*it, graph);
+//    }
+    //visualizeGraph(2, task_graph->getGraph());
+  }
 }
 
 Eigen::Isometry3d ompl_interface::BoltTaskGraphGenerator::getSearchPose(const Eigen::Isometry3d &pose)
 {
   const Eigen::Isometry3d &graph_root = graph_full_->first;
-  Eigen::Isometry3d result = Eigen::Isometry3d( Eigen::Translation3d(
-          (pose.translation().x()-graph_root.translation().x())+pose.translation().x(),
-          (pose.translation().y()-graph_root.translation().y())+pose.translation().y(),
-          (pose.translation().z()-graph_root.translation().z())+pose.translation().z())
-                  * Eigen::Quaterniond(pose.rotation()));
-  //ROS_INFO_STREAM("result:  x:" << result.translation().x() <<"| y: " <<result.translation().y() << "| z: "<<result.translation().z());
+  Eigen::Isometry3d result;
+  if(std::abs(pose.translation().x() - graph_root.translation().x()) < 1.2 )
+  {
+    result = Eigen::Isometry3d(Eigen::Translation3d(
+            (pose.translation().x() - graph_root.translation().x()) + pose.translation().x(),
+            (pose.translation().y() - graph_root.translation().y()) + pose.translation().y(),
+            (pose.translation().z() - graph_root.translation().z()) + pose.translation().z())
+                                                 * Eigen::Quaterniond(pose.rotation()));
+  }
+  else
+  {
+    result = Eigen::Isometry3d(Eigen::Translation3d((((pose.translation().x() + graph_root.translation().x()) / 2.0)
+                                                    + pose.translation().x()),
+                                                    (((pose.translation().y() + graph_root.translation().y()) / 2.0)
+                                                    + pose.translation().y()),
+                                                    (((pose.translation().z() + graph_root.translation().z()) / 2.0)
+                                                    + pose.translation().z()))
+                                                            * Eigen::Quaterniond(pose.rotation()));
+  }
 
   return result;
 }
 
 bool ompl_interface::BoltTaskGraphGenerator::poseToModelSpaceState(const Eigen::Isometry3d &pose,
                                                                                  const robot_state::JointModelGroup* joint_model_group,
-                                                                                 ompl::base::State *state)
+                                                                                 ompl::base::State *state , double timeout)
 {
-  bool ik = robot_state_->setFromIK(joint_model_group, pose, 15,0.1);
+//  bool ik = robot_state_->setFromIK(joint_model_group, pose , 0.0001);
+  bool ik = robot_state_->setFromIK(joint_model_group, pose , timeout);
   if(ik)
+  {
     robot_state_->copyJointGroupPositions(joint_model_group, state->as<ModelBasedStateSpace::StateType>()->values);
+    robot_state_->update();
+  }
 
-  robot_state_->update();
-
-  ROS_INFO_STREAM("IK: " << ik);
+//  if(ik ==0)
+//    ROS_WARN_STREAM("Can not obtain pose. Inverse kinematic failed");
   return ik;
 }
 
-bool ompl_interface::BoltTaskGraphGenerator::visualizeGraph(std::size_t color_id)
+bool ompl_interface::BoltTaskGraphGenerator::visualizeGraph(std::size_t color_id, const ompl::tools::bolt::SparseAdjList &graph,
+        bool base)
 {
   ros::Time start_time = ros::Time::now();
-  ompl::tools::bolt::SparseAdjList graph = graph_full_->second->getGraph();
 
-  BOOST_FOREACH(const otb::SparseEdge edge, boost::edges(graph))
+  BOOST_FOREACH(auto edge, boost::edges(graph))
         {
-          otb::SparseVertex v1 = boost::source(edge, graph);
-          otb::SparseVertex v2 = boost::target(edge, graph);
+          auto v1 = boost::source(edge, graph);
+          auto v2 = boost::target(edge, graph);
+          if(base)
+            visuals_->publishLine(pointWithDiff(stateToPoint(graph[v1].state_)),pointWithDiff(stateToPoint(graph[v2].state_)),
+                   visuals_->getColorWithID(color_id));
+          else
+            visuals_->publishLine(stateToPoint(graph[v1].state_),stateToPoint(graph[v2].state_),
+                                  visuals_->getColorWithID(color_id),rviz_visual_tools::MEDIUM);
+        }
+  ros::Time end = ros::Time::now() ;
+  double time = (end - start_time).toSec();
+
+  OMPL_WARN("Visualization time %f", time);
+  visuals_->trigger();
+  visuals_->enableBatchPublishing(true);
+  return true;
+}
+
+bool ompl_interface::BoltTaskGraphGenerator::visualizeGraph(std::size_t color_id, const ompl::tools::bolt::TaskAdjList &graph)
+{
+  ros::Time start_time = ros::Time::now();
+
+  BOOST_FOREACH(auto edge, boost::edges(graph))
+        {
+          auto v1 = boost::source(edge, graph);
+          auto v2 = boost::target(edge, graph);
           visuals_->publishLine(stateToPoint(graph[v1].state_),stateToPoint(graph[v2].state_),
-                 visuals_->getColorWithID(color_id));
+                                visuals_->getColorWithID(color_id));
         }
   ros::Time end = ros::Time::now() ;
   double time = (end - start_time).toSec();
@@ -322,48 +337,20 @@ Eigen::Isometry3d ompl_interface::BoltTaskGraphGenerator::stateToPoint(const omp
   robot_state_->setJointGroupPositions(robot_state_->getJointModelGroup(joint_model_group_name_),
                                        state->as<ModelBasedStateSpace::StateType>()->values);
   robot_state_->update();
-
   return robot_state_->getGlobalLinkTransform("H1_base_link");
 }
-std::vector<double> ompl_interface::BoltTaskGraphGenerator::getOffsetForState(ompl::base::State *from,
-                                                                      const robot_state::JointModelGroup* joint_model_group,
-                                                                      const ModelBasedStateSpacePtr  state_space,
-                                                                      const Eigen::Isometry3d & current_pose)
+bool ompl_interface::BoltTaskGraphGenerator::OffsetState(ompl::base::State *from,
+                                                                      const robot_state::JointModelGroup* joint_model_group)
 {
-  std::vector<double> current,base, offset;
   Eigen::Isometry3d pose = stateToPoint(from);
+  return (poseToModelSpaceState(pointWithDiff(pose), joint_model_group, from));
+}
 
-//  ROS_INFO_STREAM("Pose z grafu current:  x:" << pose.translation().x() <<"| y: " <<pose.translation().y() << "| z: "<<pose.translation().z());
+Eigen::Isometry3d ompl_interface::BoltTaskGraphGenerator::pointWithDiff(Eigen::Isometry3d pose)
+{
+  pose.translation().x() -=  (current_pose_.translation().x() - graph_full_->first.translation().x()) ;
+  pose.translation().y() -=  (current_pose_.translation().y() - graph_full_->first.translation().y()) ;
+  pose.translation().z() -=  (current_pose_.translation().z() - graph_full_->first.translation().z());
 
-  pose.translation().x() -=  (current_pose.translation().x()- graph_full_->first.translation().x()) ;
-  pose.translation().y() -=  (current_pose.translation().y()- graph_full_->first.translation().y()) ;
-  pose.translation().z() -=  (current_pose.translation().z()- graph_full_->first.translation().z());
-
-//  ROS_INFO_STREAM("Pose przesuniete base:  x:" << pose.translation().x() <<"| y: " <<pose.translation().y() << "| z: "<<pose.translation().z());
-  ompl::base::State *to = state_space->allocState();
-  bool ik = poseToModelSpaceState(pose, joint_model_group, to);
-  if(ik)
-  {
-    state_space->copyToReals(current, from);
-    state_space->copyToReals(base, to);
-
- ///   state_space->freeState(to);
-    assert(current.size() == base.size());
-    offset.resize(current.size());
-    for(std::size_t i; i < current.size();i++)
-    {
-//      if(current[i] < 0)
-//        current[i] = (-2*M_PI)-current[i];
-//
-//      if(base[i] < 0)
-//        base[i] = (-2*M_PI)-base[i];
-
-//      ROS_INFO_STREAM("current: " << current[i] );
-//      ROS_INFO_STREAM("base: " << base[i]);
-      offset[i] = (current[i] - base[i]);
-//      ROS_ERROR_STREAM("offset: " <<  offset[i]);
-    }
-
-  }
-  return offset;
+  return pose;
 }
