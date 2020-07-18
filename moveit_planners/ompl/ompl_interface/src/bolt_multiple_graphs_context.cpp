@@ -165,6 +165,7 @@ void ompl_interface::BoltTaskGraphGenerator::operator()(const double nn_radius, 
   ROS_WARN("Void operator() thread");
 
  // auto *diff_state = state_space->allocState();
+  bool visualize = true;
   ompl::base::State *state_v1{nullptr}, *state_v2{nullptr};
   bool v1_new{false}, v2_new{false};
   ompl::tools::bolt::SparseAdjList graph;
@@ -181,9 +182,11 @@ void ompl_interface::BoltTaskGraphGenerator::operator()(const double nn_radius, 
   if (!ik || !diff_ik)
     ROS_WARN_STREAM("Can not obtain pose. Inverse kinematic for nearest nighbors  failed");
 
+  if (visualize)
+    bool vis = visualizeGraph(0, graph_full_->second->getGraph());
+
   if (ik && diff_ik)
   {
-    bool vis = visualizeGraph(0, graph_full_->second->getGraph());
     nn_radius_ = (nn_radius / 2.0) ;//- std::min(state_space->distance(state, diff_state), (nn_radius / 4));
   //  ROS_INFO_STREAM("Distance:" << state_space->distance(diff_state, state) << " Radius: " << nn_radius_ );
 
@@ -191,19 +194,20 @@ void ompl_interface::BoltTaskGraphGenerator::operator()(const double nn_radius, 
     bool nn = (graph_full_->second->getNeighborGraph(state,nn_radius_ , graph));
     ros::Time start_time = ros::Time::now();
 
-    std::vector<double> test_v1= {0,0,0,0,0,0};
+    //std::vector<double> test_v1= {0,0,0,0,0,0};
 //    std::vector<double> test_v2= {0.743084,-1.00789,-1.76727,-0.393337,-2.33229,0.761168};
-    std::vector<double> test_v2= {3.14,0,0,0,0,0};
+   // std::vector<double> test_v2= {3.14,0,0,0,0,0};
 
     BOOST_FOREACH(const ompl::tools::bolt::SparseEdge & edge, boost::edges(graph))
       {
           otb::SparseVertex v1 = boost::source(edge, graph);
           otb::SparseVertex v2 = boost::target(edge,graph);
 
-        if(state_v1 != graph[v1].state_)
+          if(state_v1 != graph[v1].state_)
           {
             v1_new = OffsetState(graph[v1].state_, joint_model_group);
-            state_v1 = graph[v1].state_;}
+            state_v1 = graph[v1].state_;
+          }
           if(state_v2 != graph[v2].state_ && v1_new)
           {
             v2_new = OffsetState(graph[v2].state_, joint_model_group);
@@ -217,14 +221,14 @@ void ompl_interface::BoltTaskGraphGenerator::operator()(const double nn_radius, 
 
             //  ROS_ERROR_STREAM("DIST: " << state_space->distance(state,state_v1));
 //              ROS_ERROR_STREAM("DIST2: " << state_space->distance(state,state_v2));
-
-              visuals_->enableBatchPublishing(true);
-
-              visuals_->publishLine(stateToPoint(state_v1), stateToPoint(state_v2),
-                                    visuals_->getColorWithID(2), rviz_visual_tools::LARGE);
-
-              visuals_->enableBatchPublishing(true);
-              visuals_->trigger();
+              if (visualize)
+              {
+                visuals_->enableBatchPublishing(true);
+                visuals_->publishLine(stateToPoint(state_v1), stateToPoint(state_v2),
+                                      visuals_->getColorWithID(14), rviz_visual_tools::LARGE);
+                visuals_->enableBatchPublishing(true);
+                visuals_->trigger();
+              }
               task_graph->addEdge(edge, graph, 1);
 
 
@@ -258,12 +262,12 @@ Eigen::Isometry3d ompl_interface::BoltTaskGraphGenerator::getSearchPose(const Ei
   }
   else
   {
-    result = Eigen::Isometry3d(Eigen::Translation3d((((pose.translation().x() + graph_root.translation().x()) / 2.0)
-                                                    + pose.translation().x()),
-                                                    (((pose.translation().y() + graph_root.translation().y()) / 2.0)
-                                                    + pose.translation().y()),
-                                                    (((pose.translation().z() + graph_root.translation().z()) / 2.0)
-                                                    + pose.translation().z()))
+    result = Eigen::Isometry3d(Eigen::Translation3d((pose.translation().x() - (graph_root.translation().x() -
+                                                        ((pose.translation().x() + graph_root.translation().x()) / 2.0))),
+                                                         (pose.translation().y() - (graph_root.translation().y() -
+                                                        ((pose.translation().y() + graph_root.translation().y()) / 2.0))),
+                                                        (pose.translation().z() - (graph_root.translation().z() -
+                                                        ((pose.translation().z() + graph_root.translation().z()) / 2.0))))
                                                             * Eigen::Quaterniond(pose.rotation()));
   }
 
@@ -305,7 +309,11 @@ bool ompl_interface::BoltTaskGraphGenerator::visualizeGraph(std::size_t color_id
         }
   ros::Time end = ros::Time::now() ;
   double time = (end - start_time).toSec();
-
+  const Eigen::Isometry3d & text_pose  = Eigen::Isometry3d(Eigen::Translation3d(graph_full_->first.translation().x(),
+                                                                                graph_full_->first.translation().y(),
+                                                                                graph_full_->first.translation().z() + 1.5)
+                                                           * Eigen::Quaterniond(1,0,0,1));
+  visuals_->publishText(text_pose, "Graph " +std::to_string(index_),rviz_visual_tools::WHITE, rviz_visual_tools::XXLARGE);
   OMPL_WARN("Visualization time %f", time);
   visuals_->trigger();
   visuals_->enableBatchPublishing(true);
