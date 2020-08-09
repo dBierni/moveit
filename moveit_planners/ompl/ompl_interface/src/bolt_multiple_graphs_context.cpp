@@ -192,6 +192,7 @@ void ompl_interface::BoltTaskGraphGenerator::operator()(const double nn_radius, 
 
     robot_state_->copyJointGroupPositions(joint_model_group, state->as<ModelBasedStateSpace::StateType>()->values);
     bool nn = (graph_full_->second->getNeighborGraph(state,nn_radius_ , graph));
+    ros::Duration(2.0).sleep();
     ros::Time start_time = ros::Time::now();
 
     //std::vector<double> test_v1= {0,0,0,0,0,0};
@@ -215,7 +216,10 @@ void ompl_interface::BoltTaskGraphGenerator::operator()(const double nn_radius, 
           }
 
           if(!v2_new || !v1_new)
+          {
+            ROS_WARN_STREAM(v1_new << " | " << v2_new);
             continue;
+          }
 
         // If program reach here, it means, that robot can reach both v1 and v2.
 
@@ -223,10 +227,8 @@ void ompl_interface::BoltTaskGraphGenerator::operator()(const double nn_radius, 
 //              ROS_ERROR_STREAM("DIST2: " << state_space->distance(state,state_v2));
               if (visualize)
               {
-                visuals_->enableBatchPublishing(true);
                 visuals_->publishLine(stateToPoint(state_v1), stateToPoint(state_v2),
                                       visuals_->getColorWithID(14), rviz_visual_tools::LARGE);
-                visuals_->enableBatchPublishing(true);
                 visuals_->trigger();
               }
               task_graph->addEdge(edge, graph, 1);
@@ -315,8 +317,9 @@ bool ompl_interface::BoltTaskGraphGenerator::visualizeGraph(std::size_t color_id
                                                            * Eigen::Quaterniond(1,0,0,1));
   visuals_->publishText(text_pose, "Graph " +std::to_string(index_),rviz_visual_tools::WHITE, rviz_visual_tools::XXLARGE);
   OMPL_WARN("Visualization time %f", time);
-  visuals_->trigger();
   visuals_->enableBatchPublishing(true);
+  visuals_->trigger();
+
   return true;
 }
 
@@ -335,8 +338,9 @@ bool ompl_interface::BoltTaskGraphGenerator::visualizeGraph(std::size_t color_id
   double time = (end - start_time).toSec();
 
   OMPL_WARN("Visualization time %f", time);
-  visuals_->trigger();
   visuals_->enableBatchPublishing(true);
+  visuals_->trigger();
+
   return true;
 }
 
@@ -351,7 +355,7 @@ bool ompl_interface::BoltTaskGraphGenerator::OffsetState(ompl::base::State *from
                                                                       const robot_state::JointModelGroup* joint_model_group)
 {
   Eigen::Isometry3d pose = stateToPoint(from);
-  return (poseToModelSpaceState(pointWithDiff(pose), joint_model_group, from));
+  return (poseToModelSpaceState(pointWithDiff(pose), joint_model_group, from, 0.1));
 }
 
 Eigen::Isometry3d ompl_interface::BoltTaskGraphGenerator::pointWithDiff(Eigen::Isometry3d pose)
