@@ -45,6 +45,7 @@
 #include <ompl/geometric/planners/rrt/pRRT.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/geometric/planners/rrt/NewPlanner.h>
+#include <ompl/geometric/planners/prm/NewPlannertwo.h>
 #include <ompl/geometric/planners/rrt/TRRT.h>
 #include <ompl/geometric/planners/rrt/LazyRRT.h>
 #include <ompl/geometric/planners/est/EST.h>
@@ -54,6 +55,7 @@
 #include <ompl/geometric/planners/kpiece/BKPIECE1.h>
 #include <ompl/geometric/planners/kpiece/LBKPIECE1.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
+#include <ompl/geometric/planners/rrt/RRTstarD.h>
 #include <ompl/geometric/planners/prm/PRM.h>
 #include <ompl/geometric/planners/prm/PRMstar.h>
 #include <ompl/geometric/planners/fmt/FMT.h>
@@ -166,6 +168,9 @@ void ompl_interface::PlanningContextManager::registerDefaultPlanners()
       "geometric::RRTstar",  //
       std::bind(&allocatePlanner<og::RRTstar>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
   registerPlannerAllocator(  //
+      "geometric::RRTstarD",  //
+      std::bind(&allocatePlanner<og::RRTstarD>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+  registerPlannerAllocator(  //
       "geometric::PRM",      //
       std::bind(&allocatePlanner<og::PRM>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
   registerPlannerAllocator(  //
@@ -211,6 +216,10 @@ void ompl_interface::PlanningContextManager::registerDefaultPlanners()
   registerPlannerAllocator(   //
           "geometric::NewPlanner",  //
           std::bind(&allocatePlanner<og::NewPlanner>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+
+  registerPlannerAllocator(   //
+          "geometric::NewPlannertwo",  //
+          std::bind(&allocatePlanner<og::NewPlannertwo>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 }
 
 void ompl_interface::PlanningContextManager::registerDefaultStateSpaces()

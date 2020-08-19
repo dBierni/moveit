@@ -603,6 +603,14 @@ std::vector<OMPLPlannerDescription> MoveItConfigData::getOMPLPlanners()
                                                         "default 1");
   planner_des.push_back(RRTstar);
 
+  OMPLPlannerDescription RRTstarD("RRTstarD", "geometric");
+  RRTstarD.addParameter("range", "0.0", "Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on "
+                                       "setup()");
+  RRTstarD.addParameter("goal_bias", "0.05", "When close to goal select goal, with this probability? default: 0.05");
+  RRTstarD.addParameter("delay_collision_checking", "1", "Stop collision checking as soon as C-free parent found. "
+                                                        "default 1");
+  planner_des.push_back(RRTstarD);
+
   OMPLPlannerDescription TRRT("TRRT", "geometric");
   TRRT.addParameter("range", "0.0", "Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()");
   TRRT.addParameter("goal_bias", "0.05", "When close to goal select goal, with this probability? default: 0.05");
@@ -732,6 +740,11 @@ std::vector<OMPLPlannerDescription> MoveItConfigData::getOMPLPlanners()
   NewPlanner.addParameter("range", "0.0", "Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on "
                                           "setup()");
   planner_des.push_back(NewPlanner);
+
+  OMPLPlannerDescription NewPlannertwo("NewPlannertwo", "geometric");
+  NewPlannertwo.addParameter("range", "0.0", "Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on "
+                                          "setup()");
+  planner_des.push_back(NewPlannertwo);
   return planner_des;
 }
 

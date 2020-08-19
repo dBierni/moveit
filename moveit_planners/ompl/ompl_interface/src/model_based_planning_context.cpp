@@ -237,15 +237,18 @@ ompl_interface::ModelBasedPlanningContext::allocPathConstrainedSampler(const omp
   ROS_DEBUG_NAMED("model_based_planning_context", "%s: Allocating default state sampler for state space",
                   name_.c_str());
 
-  if (quasi_random_sampling_) // It only works,
-  {
 
-    if (states_iter == states_->end())
-      return spec_.state_space_->allocQuasiRandomStateSampler(nullptr, spec_.state_space_->getNextGenerator(),
+
+  if (!quasi_random_sampling_) // It only works,
+  {
+//    if (states_iter == states_->end())
+      return spec_.state_space_->allocQuasiRandomStateSampler(nullptr,ModelBasedStateSpace::QuasiRandomGeneratorType::FAURE,
                                                               publish_state_fun_);
-    else
-      return spec_.state_space_->allocQuasiRandomStateSampler(*(states_iter)++, spec_.state_space_->getNextGenerator(),
-                                                              publish_state_fun_);
+//    return spec_.state_space_->allocQuasiRandomStateSampler(nullptr, spec_.state_space_->getNextGenerator(),
+//                                                              publish_state_fun_);
+//    else
+//      return spec_.state_space_->allocQuasiRandomStateSampler(*(states_iter)++, spec_.state_space_->getNextGenerator(),
+//                                                              publish_state_fun_);
 
 
   }
@@ -480,7 +483,7 @@ void ompl_interface::ModelBasedPlanningContext::interpolateSolution()
 //    {
 //      result.push_back(stateToPoint(state));
 //    }
-    visuals_->publishLineStrip(solutionPathWayPoints(pg.getStates()), rviz_visual_tools::LIME_GREEN , rviz_visual_tools::LARGE);
+//    visuals_->publishLineStrip(solutionPathWayPoints(pg.getStates()), rviz_visual_tools::LIME_GREEN , rviz_visual_tools::LARGE);
     visuals_->trigger();
   }
 }
@@ -737,7 +740,7 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
   // Sets iterator for first vector used only for visualization
   states_iter = states_->begin();
   // Each thread start with diffrent sampling method
-  spec_.state_space_->setStartGenerator();
+ // spec_.state_space_->setStartGenerator();
   niederreiter_states ->clear();
   sobol_states ->clear();
   faure_states ->clear();
@@ -827,17 +830,17 @@ bool ompl_interface::ModelBasedPlanningContext::solve(double timeout, unsigned i
   }
 
   postSolve();
-  ROS_WARN("ModelBasedPlanningContext end");
-  ROS_INFO_STREAM("Publishing Niederretier samples:"<<"(" << niederreiter_states->size() << "): " <<
-  (visuals_->publishSpheres(*niederreiter_states,rviz_visual_tools::RED,rviz_visual_tools::XLARGE) ? "True": "False"));
-  ROS_INFO_STREAM("Publishing Sobol samples:"<<"(" << sobol_states->size() << "): " <<
-  (visuals_->publishSpheres(*sobol_states,rviz_visual_tools::GREEN,rviz_visual_tools::XLARGE) ? "True": "False"));
-  ROS_INFO_STREAM("Publishing Faure samples:"<<"(" << faure_states->size() << "): " <<
-  (visuals_->publishSpheres(*faure_states,rviz_visual_tools::BLUE,rviz_visual_tools::XLARGE) ? "True": "False"));
-  ROS_INFO_STREAM("Publishing Random samples:"<<"(" << random_states->size() << "): " <<
-  (visuals_->publishSpheres(*random_states,rviz_visual_tools::CYAN,rviz_visual_tools::XLARGE) ? "True": "False"));
-
-  visuals_->publishLineStrip(solutionPathWayPoints(ompl_simple_setup_->getSolutionPath().getStates()), rviz_visual_tools::RED , rviz_visual_tools::LARGE);
+//  ROS_WARN("ModelBasedPlanningContext end");
+//  ROS_INFO_STREAM("Publishing Niederretier samples:"<<"(" << niederreiter_states->size() << "): " <<
+//  (visuals_->publishSpheres(*niederreiter_states,rviz_visual_tools::RED,rviz_visual_tools::XLARGE) ? "True": "False"));
+//  ROS_INFO_STREAM("Publishing Sobol samples:"<<"(" << sobol_states->size() << "): " <<
+//  (visuals_->publishSpheres(*sobol_states,rviz_visual_tools::GREEN,rviz_visual_tools::XLARGE) ? "True": "False"));
+//  ROS_INFO_STREAM("Publishing Faure samples:"<<"(" << faure_states->size() << "): " <<
+//  (visuals_->publishSpheres(*faure_states,rviz_visual_tools::BLUE,rviz_visual_tools::XLARGE) ? "True": "False"));
+//  ROS_INFO_STREAM("Publishing Random samples:"<<"(" << random_states->size() << "): " <<
+//  (visuals_->publishSpheres(*random_states,rviz_visual_tools::CYAN,rviz_visual_tools::XLARGE) ? "True": "False"));
+  if(result == true)
+    visuals_->publishLineStrip(solutionPathWayPoints(ompl_simple_setup_->getSolutionPath().getStates()), rviz_visual_tools::RED , rviz_visual_tools::LARGE);
 //  const ob::PlannerDataPtr planner_data( new ob::PlannerData( ompl_simple_setup_->getSpaceInformation() ) );
 //  ompl_simple_setup_->getPlannerData( *planner_data );
 //  visuals_->publishGraph(planner_data, rviz_visual_tools::ORANGE, 0.2, "tree");

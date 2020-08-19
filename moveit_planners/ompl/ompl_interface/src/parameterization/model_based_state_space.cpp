@@ -312,6 +312,10 @@ ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocQuasiRand
         else if (gen_type_ == QuasiRandomGeneratorType::RANDOM)
           quasi_rng_fun_ = std::bind(&random_numbers::RandomNumberGenerator::uniformReal,&moveit_rng_,std::placeholders::_1,
                                      std::placeholders::_2);
+        ROS_INFO_STREAM("MoveIT -  Deterministic sampler:" << gen_type_ );
+//        if (!moveit_rng_.resetDeterministicGenerators())
+//          ROS_WARN("Can not reset deterministic generators");
+
 
       }
 

@@ -315,7 +315,6 @@ bool BenchmarkExecutor::initializeBenchmarks(const BenchmarkOptions& opts, movei
   std::vector<PathConstraints> goal_constraints;
   std::vector<TrajectoryConstraints> traj_constraints;
   std::vector<BenchmarkRequest> queries;
-
   bool ok = loadPlanningScene(opts.getSceneName(), scene_msg) && loadStates(opts.getStartStateRegex(), start_states) &&
             loadPathConstraints(opts.getGoalConstraintRegex(), goal_constraints) &&
             loadPathConstraints(opts.getPathConstraintRegex(), path_constraints) &&
@@ -331,6 +330,8 @@ bool BenchmarkExecutor::initializeBenchmarks(const BenchmarkOptions& opts, movei
   ROS_INFO("Benchmark loaded %lu starts, %lu goals, %lu path constraints, %lu trajectory constraints, and %lu queries",
            start_states.size(), goal_constraints.size(), path_constraints.size(), traj_constraints.size(),
            queries.size());
+
+
 
   moveit_msgs::WorkspaceParameters workspace_parameters = opts.getWorkspaceParameters();
   // Make sure that workspace_parameters are set
@@ -663,6 +664,11 @@ bool BenchmarkExecutor::loadStates(const std::string& regex, std::vector<StartSt
             start_state.state = moveit_msgs::RobotState(*robot_state);
             start_state.name = state_names[i];
             start_states.push_back(start_state);
+            ROS_ERROR_STREAM("NAME: " << start_state.name);
+            for(std::size_t i = 0 ; i < start_state.state.joint_state.position.size();i++)
+            {
+              ROS_WARN_STREAM(" Value:" << start_state.state.joint_state.position[i]);
+            }
           }
         }
         catch (std::exception& ex)
@@ -788,10 +794,12 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
           pre_event_fns_[k](request);
 
         // Solve problem
+        ROS_WARN(" Solve problem");
         planning_interface::MotionPlanDetailedResponse mp_res;
         ros::WallTime start = ros::WallTime::now();
         bool solved = context->solve(mp_res);
         double total_time = (ros::WallTime::now() - start).toSec();
+        ROS_WARN_STREAM(" Solve problem2 " << solved);
 
         // Collect data
         start = ros::WallTime::now();
@@ -801,8 +809,8 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
           post_event_fns_[k](request, mp_res, planner_data[j]);
         collectMetrics(planner_data[j], mp_res, solved, total_time);
         double metrics_time = (ros::WallTime::now() - start).toSec();
-        ROS_DEBUG("Spent %lf seconds collecting metrics", metrics_time);
-
+        ROS_INFO("Spent %lf seconds collecting metrics", metrics_time);
+        ros::Duration(0.2).sleep();
         ++progress;
       }
 
@@ -853,9 +861,10 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
           correct = false;
         if (!p.getWayPoint(k).satisfiesBounds())
           correct = false;
-        double d = planning_scene_->distanceToCollisionUnpadded(p.getWayPoint(k));
-        if (d > 0.0)  // in case of collision, distance is negative
-          clearance += d;
+//        double d = planning_scene_->distanceToCollisionUnpadded(p.getWayPoint(k));
+//        if (d > 0.0)  // in case of collision, distance is negative
+//          clearance += d;
+
       }
       clearance /= (double)p.getWayPointCount();
 
